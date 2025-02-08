@@ -15,15 +15,16 @@ class Scraper:
     async def scrape_async(self, queries: list[str], outdir: str, count) -> list[str]:
         all_results = []
         for query in queries:
-            while len(all_results) < count:
-                links = list(self.browser.search_images(query, count - len(all_results)))  # TODO: asyncio
-                tasks = [self.download(link, outdir) for link in links]
-                results = await asyncio.gather(*tasks)
-                results = [result for result in results if result and result not in all_results]
-                if not results:
-                    break
-                all_results.extend(results)
-                print(f"{query=}: {len(results)}/{len(links)} -> {len(all_results)}")
+            links = list(self.browser.search_images(query, count))  # TODO: asyncio
+            tasks = [self.download(link, outdir) for link in links]
+            results = await asyncio.gather(*tasks)
+            results = [result for result in results if result and result not in all_results]
+            if not results:
+                break
+            all_results.extend(results)
+            print(f"{query=}: {len(results)}/{len(links)} -> {len(all_results)}")
+            if len(all_results) >= count:
+                break
         return all_results        
 
     async def download(self, link: str, outdir: str) -> str | None:

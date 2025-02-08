@@ -1,6 +1,9 @@
 # Linting
 autopep8
 
+# Scripts
+fire
+
 # Actual
 beautifulsoup4
 boto3
