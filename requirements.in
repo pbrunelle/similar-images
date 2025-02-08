@@ -1,4 +1,7 @@
 # Linting
 autopep8
+
 # Actual
+beautifulsoup4
 boto3
+requests
