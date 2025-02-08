@@ -9,14 +9,24 @@ class Scraper:
         self.browser = browser
         self.client = client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
 
-    def scrape(self, query: str, outdir: str) -> list[str]:
-        return asyncio.run(self.scrape_async(query, outdir))
+    def scrape(self, queries: list[str], outdir: str, count: int = 200) -> list[str]:
+        return asyncio.run(self.scrape_async(queries, outdir, count))
 
-    async def scrape_async(self, query: str, outdir: str) -> list[str]:
-        links = self.browser.search_images(query)  # TODO: asyncio
-        tasks = [self.download(link, outdir) for link in links]
-        results = await asyncio.gather(*tasks)
-        return [result for result in results if result]
+    async def scrape_async(self, queries: list[str], outdir: str, count) -> list[str]:
+        all_results = []
+        for query in queries:
+            start = 1
+            while len(all_results) < count:
+                links = self.browser.search_images(query, start)  # TODO: asyncio
+                tasks = [self.download(link, outdir) for link in links]
+                results = await asyncio.gather(*tasks)
+                results = [result for result in results if result and result not in all_results]
+                if not results:
+                    break
+                all_results.extend(results)
+                print(f"{query=} {start=}: {len(results)}/{len(links)} -> {len(all_results)}")
+                start += len(links)
+        return all_results        
 
     async def download(self, link: str, outdir: str) -> str | None:
         try:
@@ -25,8 +35,8 @@ class Scraper:
             image_path = f"{outdir}/{link.split('/')[-1].split('?')[0]}"
             with open(image_path, 'wb') as f:
                 f.write(response.content)
-            print(f"Downloaded {link} to {image_path}")
+            # print(f"Downloaded {link} to {image_path}")
             return image_path
         except Exception as e:
-            print(f"Failed to download {link}: {type(e)} {e}")
+            # print(f"Failed to download {link}: {type(e)} {e}")
             return None

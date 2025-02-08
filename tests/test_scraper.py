@@ -6,11 +6,11 @@ def test_scraper():
     # GIVEN
     bing = Bing()
     scraper = Scraper(browser=bing)
-    query = "dog"
+    queries = ["cats", "dogs"]
     outdir = "testtmp"
+    count = 50
     Path("testtmp").mkdir(parents=True, exist_ok=True)
     # WHEN
-    filenames = scraper.scrape(query=query, outdir="testtmp")
+    filenames = scraper.scrape(queries=queries, outdir=outdir, count=count)
     # THEN
-    assert len(filenames) > 0
-    assert False
+    assert len(filenames) >= count
