@@ -5,4 +5,5 @@ autopep8
 beautifulsoup4
 boto3
 httpx
+selenium
 requests

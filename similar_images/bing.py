@@ -12,7 +12,7 @@ class Bing:
         self.user_agent = user_agent
 
     def search_images(self, query: str, start: int = 1) -> list[str]:
-        url = f"https://www.bing.com/images/search?q={quote_plus(query)}&first={start}&SafeSearch=Strict"
+        url = f"https://www.bing.com/images/search?q={quote_plus(query)}&first={start}&safeSearch=Off"
         print(f"{url=}")
         headers = {'User-Agent': self.user_agent}
         response = requests.get(url, headers=headers)
