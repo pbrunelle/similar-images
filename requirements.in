@@ -4,6 +4,9 @@ autopep8
 # Scripts
 fire
 
+# Tests
+pytest
+
 # Actual
 beautifulsoup4
 boto3
