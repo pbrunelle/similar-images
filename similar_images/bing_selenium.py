@@ -6,8 +6,13 @@ from urllib.parse import quote_plus
 import json
 import time
 
+
 class BingSelenium:
-    def __init__(self, driver: Any | None = None, wait_first_load: float = 2, wait_between_scroll: float = 1):
+    def __init__(
+            self,
+            driver: Any | None = None,
+            wait_first_load: float = 2,
+            wait_between_scroll: float = 1):
         options = Options()
         self.driver = driver if driver else webdriver.Chrome(options=options)
         self.wait_first_load = wait_first_load
@@ -41,11 +46,9 @@ class BingSelenium:
                 break
             if max_images > 0 and len(done) >= max_images:
                 break
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            self.driver.execute_script(
+                "window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(self.wait_between_scroll)
-            
-
-
 
 
 """

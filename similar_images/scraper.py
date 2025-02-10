@@ -7,25 +7,37 @@ class Scraper:
 
     def __init__(self, browser: Any, client: httpx.AsyncClient | None = None):
         self.browser = browser
-        self.client = client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
+        self.client = client if client else httpx.AsyncClient(
+            follow_redirects=True, timeout=30)
 
-    def scrape(self, queries: list[str], outdir: str, count: int = 200) -> list[str]:
+    def scrape(
+            self,
+            queries: list[str],
+            outdir: str,
+            count: int = 200) -> list[str]:
         return asyncio.run(self.scrape_async(queries, outdir, count))
 
-    async def scrape_async(self, queries: list[str], outdir: str, count) -> list[str]:
+    async def scrape_async(
+            self,
+            queries: list[str],
+            outdir: str,
+            count) -> list[str]:
         all_results = []
         for query in queries:
-            links = list(self.browser.search_images(query, count))  # TODO: asyncio
+            links = list(
+                self.browser.search_images(
+                    query, count))  # TODO: asyncio
             tasks = [self.download(link, outdir) for link in links]
             results = await asyncio.gather(*tasks)
-            results = [result for result in results if result and result not in all_results]
+            results = [
+                result for result in results if result and result not in all_results]
             if not results:
                 break
             all_results.extend(results)
             print(f"{query=}: {len(results)}/{len(links)} -> {len(all_results)}")
             if len(all_results) >= count:
                 break
-        return all_results        
+        return all_results
 
     async def download(self, link: str, outdir: str) -> str | None:
         try:

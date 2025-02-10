@@ -18,6 +18,12 @@ sudo ./aws/install
 \rm -rf aws awscliv2.zip
 ```
 
+EC2 Amazon Linux:
+
+```bash
+sudo yum install git
+```
+
 Then:
 
 ```bash

@@ -20,7 +20,8 @@ class DBClient:
             dynamo_table_name: str = DEFAULT_DYNAMO_TABLE_NAME,
             s3_bucket_name: str = DEFAULT_S3_BUCKET_NAME,
             project_name: str = DEFAULT_PROJECT_NAME):
-        self.dynamo = dynamo if dynamo else boto3.client('dynamodb', region_name=region_name)
+        self.dynamo = dynamo if dynamo else boto3.client(
+            'dynamodb', region_name=region_name)
         self.s3 = s3 if s3 else boto3.client('s3', region_name=region_name)
         self.dynamo_table_name = dynamo_table_name
         self.s3_bucket_name = s3_bucket_name
