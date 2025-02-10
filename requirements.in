@@ -3,6 +3,7 @@ autopep8
 
 # Scripts
 fire
+pillow
 
 # Tests
 pytest

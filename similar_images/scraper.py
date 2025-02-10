@@ -1,7 +1,9 @@
 from typing import Any
 import asyncio
 import httpx
-import uuid
+import hashlib
+from PIL import Image
+import io
 
 class Scraper:
 
@@ -40,13 +42,22 @@ class Scraper:
         try:
             response = await self.client.get(link)
             response.raise_for_status()
-            extension = link.split('.')[-1].split('?')[0]
-            filenamme = uuid.uuid4().hex[:8]
-            image_path = f"{outdir}/{filenamme}.{extension}"
+            contents = response.content
+            image_path = f"{outdir}/{self.get_filename(link, contents)}"
             with open(image_path, 'wb') as f:
-                f.write(response.content)
+                f.write(contents)
             # print(f"Downloaded {link} to {image_path}")
             return image_path
         except Exception as e:
-            # print(f"Failed to download {link}: {type(e)} {e}")
+            print(f"Failed to download {link}: {type(e)} {e}")
             return None
+    
+    def get_filename(self, link: str, contents: bytes) -> str:
+        # https://stackoverflow.com/a/64994148
+        try:
+            hash = hashlib.sha256(contents).hexdigest()[:8]
+            extension = Image.open(io.BytesIO(contents)).format.lower()
+            return f"{hash}.{extension}"
+        except Exception as e:
+            print(f"Failed to get filename for {link}: {type(e)} {e}")
+            raise

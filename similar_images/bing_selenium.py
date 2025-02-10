@@ -20,6 +20,7 @@ class BingSelenium:
         if headless:
             options.add_argument('--headless')
         options.add_argument('--disable-gpu')
+        options.add_argument("--start-maximized")
         self.driver = driver if driver else webdriver.Chrome(options=options)
         self.wait_first_load = wait_first_load
         self.wait_between_scroll = wait_between_scroll
