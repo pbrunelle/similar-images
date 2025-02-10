@@ -1,7 +1,7 @@
 from typing import Any
 import asyncio
 import httpx
-
+import uuid
 
 class Scraper:
 
@@ -40,7 +40,9 @@ class Scraper:
         try:
             response = await self.client.get(link)
             response.raise_for_status()
-            image_path = f"{outdir}/{link.split('/')[-1].split('?')[0]}"
+            extension = link.split('.')[-1].split('?')[0]
+            filenamme = uuid.uuid4().hex[:8]
+            image_path = f"{outdir}/{filenamme}.{extension}"
             with open(image_path, 'wb') as f:
                 f.write(response.content)
             # print(f"Downloaded {link} to {image_path}")
