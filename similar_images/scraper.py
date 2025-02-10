@@ -14,7 +14,7 @@ class Scraper:
             self,
             queries: list[str],
             outdir: str,
-            count: int = 200) -> list[str]:
+            count) -> list[str]:
         return asyncio.run(self.scrape_async(queries, outdir, count))
 
     async def scrape_async(
@@ -24,19 +24,16 @@ class Scraper:
             count) -> list[str]:
         all_results = []
         for query in queries:
-            links = list(
-                self.browser.search_images(
-                    query, count))  # TODO: asyncio
+            links = list(self.browser.search_images(query, count))
             tasks = [self.download(link, outdir) for link in links]
             results = await asyncio.gather(*tasks)
-            results = [
-                result for result in results if result and result not in all_results]
-            if not results:
-                break
+            results = [r for r in results if r and r not in all_results]
             all_results.extend(results)
             print(f"{query=}: {len(results)}/{len(links)} -> {len(all_results)}")
+            if not results:
+                break  # scrolled to the bottom of the page
             if len(all_results) >= count:
-                break
+                break  # collected enough images
         return all_results
 
     async def download(self, link: str, outdir: str) -> str | None:

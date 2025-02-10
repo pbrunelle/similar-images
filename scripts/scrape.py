@@ -3,10 +3,10 @@ from similar_images.scraper import Scraper
 from pathlib import Path
 import fire
 
-def scrape(queries_str: str, outdir: str, count: int):
+def scrape(queries_str: str, outdir: str, count: int, safe_search: bool = True):
     queries = queries_str.split(",")
-    print(f"Scraping {queries=} to {outdir=} with {count=}")
-    browser = BingSelenium()
+    print(f"Scraping {queries=} to {outdir=} with {count=} {'with' if safe_search else 'without'} safe search")
+    browser = BingSelenium(safe_search=safe_search)
     scraper = Scraper(browser=browser)
     Path(outdir).mkdir(parents=True, exist_ok=True)
     scraper.scrape(queries=queries, outdir=outdir, count=count)

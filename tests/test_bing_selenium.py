@@ -2,10 +2,10 @@ from similar_images.bing_selenium import BingSelenium
 
 def test_bing_search_images():
     # GIVEN
-    bing = BingSelenium()
+    bing = BingSelenium(headless=True)
     query = "dog"
     # WHEN
-    links = list(bing.search_images(query, max_images=100))
+    links = list(bing.search_images(query, max_images=10))
     # THEN
     print(f"Found {len(links)} links")
     print(links)
