@@ -11,20 +11,20 @@ class BingSelenium:
     def __init__(
             self,
             driver: Any | None = None,
-            wait_first_load: float = 2,
-            wait_between_scroll: float = 1,
-            safe_search: bool = False,
-            headless: bool = True,
+            wait_first_load: float | None = None,
+            wait_between_scroll: float | None = None,
+            safe_search: bool | None = None,
+            headless: bool | None = None
         ):
         options = Options()
-        if headless:
+        if headless is not False:
             options.add_argument('--headless')
         options.add_argument('--disable-gpu')
         options.add_argument("--start-maximized")
         self.driver = driver if driver else webdriver.Chrome(options=options)
-        self.wait_first_load = wait_first_load
-        self.wait_between_scroll = wait_between_scroll
-        self.safe_search = safe_search
+        self.wait_first_load = wait_first_load if wait_first_load is not None else 2
+        self.wait_between_scroll = wait_between_scroll if wait_between_scroll is not None else 1
+        self.safe_search = safe_search if safe_search is not None else False
 
     def search_images(self, query: str, max_images: int = -1):
         done = set()

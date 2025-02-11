@@ -12,5 +12,6 @@ pytest
 beautifulsoup4
 boto3
 httpx
+pydantic
 selenium
 requests
