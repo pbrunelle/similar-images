@@ -11,7 +11,7 @@ class CommonConfiguration(BaseModel):
     safe_search: bool | None = None
 
 class RunConfiguration(CommonConfiguration):
-    queries: list[str]
+    queries: str
 
     def resolve(self, common: CommonConfiguration) -> None:
         fields_to_resolve = [

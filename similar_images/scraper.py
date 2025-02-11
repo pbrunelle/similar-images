@@ -7,6 +7,7 @@ import io
 from similar_images.crappy_db import CrappyDB
 from similar_images.types import Result
 import datetime
+import exrex
 
 class Scraper:
 
@@ -17,7 +18,7 @@ class Scraper:
 
     def scrape(
         self,
-        queries: list[str],
+        queries: str,
         outdir: str,
         count: int,
         db: CrappyDB | None = None,
@@ -26,13 +27,15 @@ class Scraper:
 
     async def scrape_async(
         self,
-        queries: list[str],
+        queries: str,
         outdir: str,
         count: int,
         db: CrappyDB | None,
     ) -> list[str]:
         all_results = []
-        for query in queries:
+        # for query in queries:
+        for query in exrex.generate(queries):
+            query = query.strip()
             links = list(self.browser.search_images(query, count))
             if db:
                 filtered = []

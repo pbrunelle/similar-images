@@ -11,6 +11,7 @@ pytest
 # Actual
 beautifulsoup4
 boto3
+exrex
 httpx
 pydantic
 selenium
