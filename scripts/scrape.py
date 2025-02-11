@@ -5,6 +5,7 @@ from similar_images.types import ScrapeConfiguration
 from pathlib import Path
 import fire
 import logging
+import datetime
 
 def scrape(configfile: str) -> None:
     with open(configfile, "r") as f:
@@ -21,8 +22,10 @@ def scrape(configfile: str) -> None:
             headless=run.headless
         )
         scraper = Scraper(browser=browser)
-        Path(run.outdir).mkdir(parents=True, exist_ok=True)
-        scraper.scrape(queries=[run.query], outdir=run.outdir, count=run.count, db=db)
+        now_str = datetime.datetime.now().strftime("%Y_%m_%d-%p%I_%M_%S")
+        outdir = f"{run.outdir}/{now_str}"
+        Path(outdir).mkdir(parents=True, exist_ok=True)
+        scraper.scrape(queries=run.queries, outdir=outdir, count=run.count, db=db)
 
 if __name__ == "__main__":
     fire.Fire(scrape)

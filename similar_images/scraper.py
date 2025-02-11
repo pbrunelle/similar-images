@@ -48,8 +48,8 @@ class Scraper:
             results = [r for r in results if r and r not in all_results]
             all_results.extend(results)
             print(f"{query=}: {len(results)}/{len(links)} -> {len(all_results)}")
-            if not results:
-                break  # scrolled to the bottom of the page
+            # if not results:
+            #     break  # scrolled to the bottom of the page
             if len(all_results) >= count:
                 break  # collected enough images
         return all_results
