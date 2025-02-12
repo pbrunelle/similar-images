@@ -7,13 +7,35 @@ import fire
 import logging
 import datetime
 
+logger = logging.getLogger()
+
 def scrape(configfile: str) -> None:
     with open(configfile, "r") as f:
         scrape_config = ScrapeConfiguration.model_validate_json(f.read())
-    #logging.basicConfig(format='%(asctime)s:%(filename)s:%(levelname)s:%(message)s',filename=log_file, level=logging.INFO, force=True)
+    handlers = [
+        logging.StreamHandler()
+    ]
+    if scrape_config.logfile:
+        handlers.append(logging.FileHandler(scrape_config.logfile))
+    logging.basicConfig(
+        level=scrape_config.verbosity,
+        format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
+    for module in [
+        'selenium.webdriver.common.selenium_manager',
+        'selenium.webdriver.remote.remote_connection',
+        'urllib3.connectionpool',
+        'httpcore.http11',
+        'httpcore.connection',
+        'httpx',
+        "PIL.TiffImagePlugin",
+        "PIL.Image",
+    ]:
+        logging.getLogger(module).disabled = True
     for run in scrape_config.runs:
         run.resolve(scrape_config.common)
-        print(f"Scraping {run=}")
+        logger.info(f"Scraping {run=}")
         db = CrappyDB(run.database)
         browser = BingSelenium(
             wait_first_load=run.wait_first_load,

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 import datetime
+import logging
 
 class CommonConfiguration(BaseModel):
     outdir: str | None = None
@@ -30,6 +31,8 @@ class RunConfiguration(CommonConfiguration):
 class ScrapeConfiguration(BaseModel):
     common: CommonConfiguration | None = None
     runs: list[RunConfiguration]
+    verbosity: int | str = logging.INFO
+    logfile: str = ""
 
 class Result(BaseModel):
     url: str

@@ -5,7 +5,9 @@ from typing import Any
 from urllib.parse import quote_plus
 import json
 import time
+import logging
 
+logger = logging.getLogger()
 
 class BingSelenium:
     def __init__(
@@ -41,7 +43,7 @@ class BingSelenium:
                 "expiry": 1773627172,
             })
         url = f"https://www.bing.com/images/search?q={quote_plus(query)}"
-        print(f"{url=}")
+        logger.info(f"Searching {url=}")
         self.driver.get(url)
         time.sleep(self.wait_first_load)  # wait for images to load
         while True:
@@ -60,7 +62,7 @@ class BingSelenium:
                             yield url
                     except json.JSONDecodeError:
                         pass
-            print(f"{i=}: {added=} {len(done)=}")
+            logger.debug(f"Search results iteration {i}: found {added} links, total {len(done)}")
             if added == 0:
                 break
             if max_images > 0 and len(done) >= max_images:
