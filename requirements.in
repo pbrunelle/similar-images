@@ -13,6 +13,7 @@ beautifulsoup4
 boto3
 exrex
 httpx
+imagehash
 pydantic
 selenium
 requests
