@@ -30,6 +30,7 @@ def scrape(configfile: str) -> None:
         'httpcore.connection',
         'httpx',
         "PIL.TiffImagePlugin",
+        "PIL.PngImagePlugin",
         "PIL.Image",
     ]:
         logging.getLogger(module).disabled = True
