@@ -16,13 +16,16 @@ class BingSelenium:
             wait_first_load: float | None = None,
             wait_between_scroll: float | None = None,
             safe_search: bool | None = None,
-            headless: bool | None = None
+            headless: bool | None = None,
+            user_data_dir: str | None = None,
         ):
         options = Options()
         if headless is not False:
             options.add_argument('--headless')
         options.add_argument('--disable-gpu')
         options.add_argument("--start-maximized")
+        if user_data_dir:
+            options.add_argument(f"--user-data-dir={user_data_dir}")
         self.driver = driver if driver else webdriver.Chrome(options=options)
         self.wait_first_load = wait_first_load if wait_first_load is not None else 2
         self.wait_between_scroll = wait_between_scroll if wait_between_scroll is not None else 1
