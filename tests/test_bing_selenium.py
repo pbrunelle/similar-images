@@ -1,6 +1,6 @@
 from similar_images.bing_selenium import BingSelenium
 
-def test_bing_search_images():
+def test_bing_search_images(): 
     # GIVEN
     bing = BingSelenium(headless=True)
     query = "dog"
