@@ -2,6 +2,7 @@ from pydantic import BaseModel
 import datetime
 import logging
 
+
 class CommonConfiguration(BaseModel):
     outdir: str | None = None
     database: str | None = None
@@ -10,6 +11,7 @@ class CommonConfiguration(BaseModel):
     wait_first_load: float | None = None
     headless: bool | None = None
     safe_search: bool | None = None
+
 
 class RunConfiguration(CommonConfiguration):
     queries: str
@@ -28,11 +30,13 @@ class RunConfiguration(CommonConfiguration):
             if getattr(self, field) is None:
                 setattr(self, field, getattr(common, field))
 
+
 class ScrapeConfiguration(BaseModel):
     common: CommonConfiguration | None = None
     runs: list[RunConfiguration]
     verbosity: int | str = logging.INFO
     logfile: str = ""
+
 
 class Result(BaseModel):
     url: str

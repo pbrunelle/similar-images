@@ -1,6 +1,7 @@
 from similar_images.duckduckgo import DuckDuckGo
 import pytest
 
+
 @pytest.mark.skip(reason="DDG is more complicated to scrape")
 def _test_ddd_search_images():
     # GIVEN

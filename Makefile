@@ -8,5 +8,5 @@ create-venv:
 test:
 	$(SOURCE_VENV) python -m pytest tests
 
-ruff-format:
-	$(SOURCE_VENV) python -m ruff format tests/test_types.py
+ruff:
+	$(SOURCE_VENV) python -m ruff format similar_images/ tests/

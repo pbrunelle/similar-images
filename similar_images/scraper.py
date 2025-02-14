@@ -13,11 +13,13 @@ from pydantic import BaseModel
 
 logger = logging.getLogger()
 
+
 class DownloadResponse(BaseModel):
     image_path: str | None = None
     dup_hashstr: bool = False
     small: bool = False
     err: bool = False
+
 
 class Statistics(BaseModel):
     links: int = 0
@@ -34,17 +36,17 @@ class Statistics(BaseModel):
         self.small += other.small
         self.err += other.err
         self.new += other.new
-    
+
     def __str__(self):
         return f"links={self.links} | dup:url={self.dup_url} dup:hash={self.dup_hash} small={self.small} err={self.err} | new={self.new}"
 
 
 class Scraper:
-
     def __init__(self, browser: Any, client: httpx.AsyncClient | None = None):
         self.browser = browser
-        self.client = client if client else httpx.AsyncClient(
-            follow_redirects=True, timeout=30)
+        self.client = (
+            client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
+        )
 
     def scrape(
         self,
@@ -95,7 +97,9 @@ class Scraper:
                 break  # collected enough images
         return all_results
 
-    async def download(self, link: str, outdir: str, db: CrappyDB | None, query: str) -> DownloadResponse:
+    async def download(
+        self, link: str, outdir: str, db: CrappyDB | None, query: str
+    ) -> DownloadResponse:
         try:
             response = await self.client.get(link, timeout=10)
             response.raise_for_status()
@@ -116,13 +120,21 @@ class Scraper:
             filename = hashstr[:8]
             extension = img.format.lower()
             image_path = f"{outdir}/{filename}.{extension}"
-            with open(image_path, 'wb') as f:
+            with open(image_path, "wb") as f:
                 f.write(contents)
             logger.debug(f"Downloaded {link} to {image_path}")
             if db:
-                db.put(Result(url=link, hashstr=hashstr, ts=datetime.datetime.now(), path=image_path, query=query))
+                db.put(
+                    Result(
+                        url=link,
+                        hashstr=hashstr,
+                        ts=datetime.datetime.now(),
+                        path=image_path,
+                        query=query,
+                    )
+                )
             return DownloadResponse(image_path=image_path)
         except Exception as e:
-            str_e = str(e).replace('\n', ' ')
+            str_e = str(e).replace("\n", " ")
             logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
             return DownloadResponse(err=True)
