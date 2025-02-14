@@ -14,11 +14,18 @@ async def run_gemini(query: str, image_paths: str):
         files = image_paths.split(",")
     print(files)
     for image_path in files:
+        print(image_path)
         response = await gemini.chat(query, [image_path])
-        decision = response["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+        try:
+            decision = response["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+        except KeyError:
+            try:
+                decision = response["promptFeedback"]["blockReason"]
+            except KeyError:
+                decision = "<error>"
         decisions.append((image_path, decision))
     for image_path, decision in decisions:
-        print(f"{decision.ljust(4)} {image_path}")
+        print(f"{decision.ljust(20)} {image_path}")
 
 
 if __name__ == "__main__":
