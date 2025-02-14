@@ -20,6 +20,7 @@ logger = logging.getLogger()
 class DownloadResponse(BaseModel):
     image_path: str | None = None
     dup_hashstr: bool = False
+    dup_near: bool = False
     small: bool = False
     err: bool = False
 
@@ -90,6 +91,7 @@ class Scraper:
             tasks = [self.download(link, outdir, db, query) for link in links]
             results = await asyncio.gather(*tasks)
             q_stats.dup_hash = len([r for r in results if r.dup_hashstr])
+            q_stats.dup_near = len([r for r in results if r.dup_near])
             q_stats.small = len([r for r in results if r.small])
             q_stats.err = len([r for r in results if r.err])
             results = set([r.image_path for r in results if r.image_path])
