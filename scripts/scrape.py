@@ -6,6 +6,9 @@ from pathlib import Path
 import fire
 import logging
 import datetime
+import tempfile
+import os
+import shutil
 
 logger = logging.getLogger()
 
@@ -38,17 +41,21 @@ def scrape(configfile: str) -> None:
         run.resolve(scrape_config.common)
         logger.info(f"Scraping {run=}")
         db = CrappyDB(run.database)
+        home_tmp_dir = tempfile.mkdtemp(dir=os.environ['HOME'])
         browser = BingSelenium(
             wait_first_load=run.wait_first_load,
             wait_between_scroll=run.wait_between_scroll,
             safe_search=run.safe_search,
-            headless=run.headless
+            headless=run.headless,
+            user_data_dir=home_tmp_dir,
         )
         scraper = Scraper(browser=browser)
-        now_str = datetime.datetime.now().strftime("%Y_%m_%d-%p%I_%M_%S")
+        now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         outdir = f"{run.outdir}/{now_str}"
         Path(outdir).mkdir(parents=True, exist_ok=True)
         scraper.scrape(queries=run.queries, outdir=outdir, count=run.count, db=db)
+        browser.done()
+        shutil.rmtree(home_tmp_dir)
 
 if __name__ == "__main__":
     fire.Fire(scrape)

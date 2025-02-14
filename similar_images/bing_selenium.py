@@ -73,3 +73,6 @@ class BingSelenium:
             self.driver.execute_script(
                 "window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(self.wait_between_scroll)
+
+    def done(self) -> None:
+        self.driver.quit()

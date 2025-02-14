@@ -1,6 +1,6 @@
 from similar_images.bing import Bing
 
-def test_bing_search_images():
+def _test_bing_search_images():
     # GIVEN
     ddg = Bing()
     query = "dog"

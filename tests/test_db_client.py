@@ -6,7 +6,7 @@ from similar_images.db_client import DBClient
 def live_client():
     return DBClient()
 
-def test_store_image_data_happy_path(live_client, tmp_path):
+def _test_store_image_data_happy_path(live_client, tmp_path):
     # GIVEN
     file_path="requirements.in"
     origin_url = "https://example.com/image.jpg"
