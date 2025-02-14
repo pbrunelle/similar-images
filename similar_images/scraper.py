@@ -80,7 +80,7 @@ class Scraper:
                         logger.debug(f"Already downloaded (URL): {link}: {record}")
                         q_stats.dup_url += 1
                 links = filtered
-            tasks = [self.download(link, outdir, db) for link in links]
+            tasks = [self.download(link, outdir, db, query) for link in links]
             results = await asyncio.gather(*tasks)
             q_stats.dup_hash = len([r for r in results if r.dup_hashstr])
             q_stats.small = len([r for r in results if r.small])
@@ -95,9 +95,9 @@ class Scraper:
                 break  # collected enough images
         return all_results
 
-    async def download(self, link: str, outdir: str, db: CrappyDB | None) -> DownloadResponse:
+    async def download(self, link: str, outdir: str, db: CrappyDB | None, query: str) -> DownloadResponse:
         try:
-            response = await self.client.get(link)
+            response = await self.client.get(link, timeout=10)
             response.raise_for_status()
             contents = response.content
             # https://stackoverflow.com/a/64994148
@@ -120,7 +120,7 @@ class Scraper:
                 f.write(contents)
             logger.debug(f"Downloaded {link} to {image_path}")
             if db:
-                db.put(Result(url=link, hashstr=hashstr, ts=datetime.datetime.now(), path=image_path))
+                db.put(Result(url=link, hashstr=hashstr, ts=datetime.datetime.now(), path=image_path, query=query))
             return DownloadResponse(image_path=image_path)
         except Exception as e:
             str_e = str(e).replace('\n', ' ')

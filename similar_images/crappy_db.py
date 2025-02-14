@@ -9,7 +9,7 @@ class CrappyDB:
     
     def put(self, r: Result) -> None:
         with open(self.filename, "at") as f:
-            f.write(f"{r.model_dump_json()}\n")
+            f.write(f"{r.dump()}\n")
     
     def get(self, field: str, value: str) -> Result | None:
         with open(self.filename, "rt") as f:

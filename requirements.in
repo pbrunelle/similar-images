@@ -1,5 +1,6 @@
 # Linting
 autopep8
+ruff
 
 # Scripts
 fire

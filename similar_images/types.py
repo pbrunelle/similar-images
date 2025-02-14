@@ -39,3 +39,8 @@ class Result(BaseModel):
     hashstr: str
     ts: datetime.datetime | None = None
     path: str | None = None
+    query: str | None = None
+    hashes: dict[str, str] | None = None
+
+    def dump(self):
+        return self.model_dump_json(exclude={"path"}, exclude_none=True)
