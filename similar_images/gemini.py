@@ -40,3 +40,4 @@ class Gemini:
             except httpx.HTTPStatusError as ex:
                 print(f"{type(ex)} {ex}")
                 asyncio.sleep(10)
+        return {}
