@@ -1,5 +1,6 @@
-from similar_images.types import Result
 from pathlib import Path
+
+from similar_images.types import Result
 
 
 class CrappyDB:

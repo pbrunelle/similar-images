@@ -1,6 +1,7 @@
-from pydantic import BaseModel
 import datetime
 import logging
+
+from pydantic import BaseModel
 
 
 class CommonConfiguration(BaseModel):

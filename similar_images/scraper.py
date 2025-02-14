@@ -1,15 +1,17 @@
-from typing import Any
 import asyncio
-import httpx
+import datetime
 import hashlib
-from PIL import Image
 import io
+import logging
+from typing import Any
+
+import exrex
+import httpx
+from PIL import Image
+from pydantic import BaseModel
+
 from similar_images.crappy_db import CrappyDB
 from similar_images.types import Result
-import datetime
-import exrex
-import logging
-from pydantic import BaseModel
 
 logger = logging.getLogger()
 

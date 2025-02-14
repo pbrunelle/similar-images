@@ -1,6 +1,8 @@
-from similar_images.types import Result
-import pytest
 from datetime import datetime
+
+import pytest
+
+from similar_images.types import Result
 
 
 @pytest.mark.parametrize(

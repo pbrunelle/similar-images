@@ -1,8 +1,10 @@
-from similar_images.bing_selenium import BingSelenium
 import os
-import tempfile
 import shutil
+import tempfile
+
 import pytest
+
+from similar_images.bing_selenium import BingSelenium
 
 
 @pytest.fixture

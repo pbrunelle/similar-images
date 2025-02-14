@@ -1,7 +1,8 @@
+from pathlib import Path
+
 from similar_images.bing import Bing
 from similar_images.bing_selenium import BingSelenium
 from similar_images.scraper import Scraper
-from pathlib import Path
 
 
 def _test_scraper():

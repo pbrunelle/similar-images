@@ -1,8 +1,9 @@
 """Client for DynamoDB and S3."""
 
-import boto3
 import uuid
 from typing import Any
+
+import boto3
 
 DEFAULT_REGION_NAME = "us-east-1"
 DEFAULT_DYNAMO_TABLE_NAME = "Similar-Images-Meta"

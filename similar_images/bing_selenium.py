@@ -1,11 +1,12 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
+import json
+import logging
+import time
 from typing import Any
 from urllib.parse import quote_plus
-import json
-import time
-import logging
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 logger = logging.getLogger()
 
