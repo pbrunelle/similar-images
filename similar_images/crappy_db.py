@@ -47,3 +47,9 @@ class CrappyDB:
                     if near_duplicate_hash(r.hashes, hashes):
                         return r
         return None
+
+    def scan(self):
+        with open(self.filename, "rt") as f:
+            for line in f.readlines():
+                r = Result.model_validate_json(line)
+                yield r
