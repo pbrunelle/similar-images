@@ -7,6 +7,7 @@ from typing import Any
 
 import exrex
 import httpx
+import imagehash
 from PIL import Image
 from pydantic import BaseModel
 
@@ -27,6 +28,7 @@ class Statistics(BaseModel):
     links: int = 0
     dup_url: int = 0
     dup_hash: int = 0
+    dup_near: int = 0
     small: int = 0
     err: int = 0
     new: int = 0
@@ -35,12 +37,13 @@ class Statistics(BaseModel):
         self.links += other.links
         self.dup_url += other.dup_url
         self.dup_hash += other.dup_hash
+        self.dup_near += other.dup_near
         self.small += other.small
         self.err += other.err
         self.new += other.new
 
     def __str__(self):
-        return f"links={self.links} | dup:url={self.dup_url} dup:hash={self.dup_hash} small={self.small} err={self.err} | new={self.new}"
+        return f"links={self.links} | dup:url={self.dup_url} dup:hash={self.dup_hash} dup:near={self.dup_near} small={self.small} err={self.err} | new={self.new}"
 
 
 class Scraper:
@@ -119,6 +122,21 @@ class Scraper:
             if size[0] < MIN_SIZE[0] or size[1] < MIN_SIZE[1]:
                 logger.debug(f"Too small: {link}: {img.size}")
                 return DownloadResponse(small=True)
+            # Get hashes to detect near duplicates
+            hashes = {
+                "a": str(imagehash.average_hash(img)),
+                "p": str(imagehash.phash(img)),
+                "d": str(imagehash.dhash(img)),
+                "dv": str(imagehash.dhash_vertical(img)),
+                "w": str(imagehash.whash(img)),
+            }
+            if db:
+                record = db.find_near_duplicate(hashes)
+                if record:
+                    logger.debug(
+                        f"Already downloaded (near duplicate): {link}: {record}"
+                    )
+                    return DownloadResponse(dup_near=True)
             filename = hashstr[:8]
             extension = img.format.lower()
             image_path = f"{outdir}/{filename}.{extension}"
@@ -133,6 +151,7 @@ class Scraper:
                         ts=datetime.datetime.now(),
                         path=image_path,
                         query=query,
+                        hashes=hashes,
                     )
                 )
             return DownloadResponse(image_path=image_path)
