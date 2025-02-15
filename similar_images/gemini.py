@@ -6,6 +6,7 @@ import httpx
 import asyncio
 from pydantic import BaseModel
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,22 @@ class Decision(BaseModel):
     decision: str | None
     status_code: int
 
+    def answer(self):
+        # print(self)
+        d: str = self.decision
+        if (idx := d.find("```json")) != -1:
+            d = d[idx:].removeprefix("```json")
+        if (idx := d.rfind("```")) != -1:
+            d = d[:idx]
+        d = d.strip()
+        if d.isalpha() or d == "PROHIBITED_CONTENT":
+            return d
+        answer = json.loads(d)
+        for key in ("all", "overall", "all_satisfied", "all_criteria_satisfied"):
+            if key in answer:
+                return answer[key].strip()
+        raise Exception(f"Failed to get answer on: {self}")
+    
 class Gemini:
     def __init__(self, httpx_client: httpx.AsyncClient, model: str, max_output_tokens: int):
         self._api_key = os.environ["GEMINI_API_KEY"]
