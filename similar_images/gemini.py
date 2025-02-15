@@ -1,14 +1,15 @@
+import asyncio
 import base64
+import json
+import logging
 import os
 from typing import Any
 
 import httpx
-import asyncio
 from pydantic import BaseModel
-import logging
-import json
 
 logger = logging.getLogger(__name__)
+
 
 class Decision(BaseModel):
     image_path: str
@@ -31,9 +32,12 @@ class Decision(BaseModel):
             if key in answer:
                 return answer[key].strip()
         raise Exception(f"Failed to get answer on: {self}")
-    
+
+
 class Gemini:
-    def __init__(self, httpx_client: httpx.AsyncClient, model: str, max_output_tokens: int):
+    def __init__(
+        self, httpx_client: httpx.AsyncClient, model: str, max_output_tokens: int
+    ):
         self._api_key = os.environ["GEMINI_API_KEY"]
         self._httpx_client = httpx_client
         self._model = model
@@ -46,8 +50,10 @@ class Gemini:
             except httpx.HTTPStatusError as ex:
                 logger.warning(f"Gemini failed {i=} on {image_paths=}: {type(ex)} {ex}")
                 await asyncio.sleep(10)
-        return Decision(image_path=image_paths[0], content={}, decision=None, status_code=400)
-    
+        return Decision(
+            image_path=image_paths[0], content={}, decision=None, status_code=400
+        )
+
     async def do_chat(self, query: str, image_paths: list[str]) -> Decision:
         parts = [{"text": query}]
         for image_path in image_paths:
@@ -77,7 +83,14 @@ class Gemini:
         except KeyError:
             pass
         try:
-            decision = content["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+            decision = (
+                content["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+            )
         except (KeyError, IndexError):
             pass
-        return Decision(image_path=image_path, content=content, decision=decision, status_code=response.status_code)
+        return Decision(
+            image_path=image_path,
+            content=content,
+            decision=decision,
+            status_code=response.status_code,
+        )
