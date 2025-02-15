@@ -10,21 +10,12 @@ import exrex
 import httpx
 import imagehash
 from PIL import Image
-from pydantic import BaseModel
 
 from similar_images.crappy_db import CrappyDB
 from similar_images.filters.filter import Filter
 from similar_images.types import Result
 
 logger = logging.getLogger()
-
-
-class DownloadResponse(BaseModel):
-    image_path: str | None = None
-    dup_hashstr: bool = False
-    dup_near: bool = False
-    small: bool = False
-    err: bool = False
 
 
 def add_stats(stats: dict[str, int], other_stats: dict[str, int]):
@@ -76,152 +67,140 @@ class Scraper:
         outdir: str,
         count: int,
     ) -> set[str]:
-        all_results: set[str] = set()
+        all_links: set[str] = set()
         run_stats: dict[str, int] = defaultdict(int)
-
         for query in exrex.generate(queries):
             q_stats = defaultdict(int)
             query = query.strip()
             links = set(self.browser.search_images(query, count))
-            q_stats["links"] = len(links)
+            tasks = [
+                self.process_link(link=link, query=query, outdir=outdir)
+                for link in links
+            ]
+            processed_links = await asyncio.gather(*tasks)
+            downloaded_links = set()
+            for link, code in processed_links:
+                if link:
+                    downloaded_links.add(link)
+                assert code
+                q_stats[code] += 1
+            q_stats["links"] += len(downloaded_links)
+            all_links = all_links.union(downloaded_links)
+            logger.info(f"Done {query=} | {print_stats(q_stats)}")
+            add_stats(run_stats, q_stats)
+            logger.info(f"Cumulative | {print_stats(run_stats)}")
+            if len(all_links) >= count:
+                break  # collected enough images
+        return all_links
 
+    async def process_link(
+        self, link: str, query: str, outdir: str
+    ) -> tuple[str | None, str]:
+        try:
             # Filter based on URL
-            filtered = set()
-            for link in links:
-                keep, code = await self.apply_filters(
-                    query=query, url=link, filters=self.stage2filters["url"]
-                )
-                if keep:
-                    filtered.add(link)
-                else:
-                    q_stats[code] += 1
-            links = filtered
+            keep, code = await self.apply_filters(
+                query=query, url=link, filters=self.stage2filters["url"]
+            )
+            if not keep:
+                return (None, code)
 
-            # Download images (do not save to disk yet)
-            tasks = [self.download(link) for link in links]
-            results = await asyncio.gather(*tasks)
+            # Download image (do not save to disk yet)
+            response = await self.client.get(link)
+            response.raise_for_status()
+            contents = response.content
+            if not contents:
+                return (None, "err")
 
-            # Apply filters
-            filtered_results = set()
-            for link, contents in results:
-                # Downloaded?
-                if not contents:
-                    q_stats["err"] += 1
-                    continue
+            # Get image "identity"
+            # https://stackoverflow.com/a/64994148
+            hashstr = hashlib.sha256(contents).hexdigest()
 
-                # https://stackoverflow.com/a/64994148
-                hashstr = hashlib.sha256(contents).hexdigest()
+            img = Image.open(io.BytesIO(contents))
 
-                try:
-                    img = Image.open(io.BytesIO(contents))
-                except OSError as e:
-                    logger.debug(f"Bad image {link}: {type(e)} {str(e)}")
-                    q_stats["err"] += 1
-                    continue
+            # Filter based on image contents
+            keep, code = await self.apply_filters(
+                url=link,
+                query=query,
+                contents=contents,
+                img=img,
+                filters=self.stage2filters["contents"],
+            )
+            if not keep:
+                return (None, code)
 
-                # Filter based on image contents
-                keep, code = await self.apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    img=img,
-                    filters=self.stage2filters["contents"],
-                )
-                if not keep:
-                    q_stats[code] += 1
-                    continue
+            # Filter based on hashes
+            hashes = {
+                "a": str(imagehash.average_hash(img)),
+                "p": str(imagehash.phash(img)),
+                "d": str(imagehash.dhash(img)),
+                "dv": str(imagehash.dhash_vertical(img)),
+                "w": str(imagehash.whash(img)),
+            }
+            keep, code = await self.apply_filters(
+                url=link,
+                query=query,
+                contents=contents,
+                image=img,
+                hashes=hashes,
+                filters=self.stage2filters["hashes"],
+            )
+            if not keep:
+                return (None, code)
 
-                # Filter based on hashes
-                hashes = {
-                    "a": str(imagehash.average_hash(img)),
-                    "p": str(imagehash.phash(img)),
-                    "d": str(imagehash.dhash(img)),
-                    "dv": str(imagehash.dhash_vertical(img)),
-                    "w": str(imagehash.whash(img)),
-                }
-                keep, code = await self.apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    image=img,
-                    hashes=hashes,
-                    filters=self.stage2filters["hashes"],
-                )
-                if not keep:
-                    q_stats[code] += 1
-                    continue
-
-                # Run expensive filters (e.g. LLMs)
-                keep, code = await self.apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    image=img,
-                    hashes=hashes,
-                    filters=self.stage2filters["expensive"],
-                )
-                if not keep:
-                    q_stats[code] += 1
-                    if self.db:
-                        # Remember this image to avoid expensive computations again
-                        self.db.put(
-                            Result(
-                                url=link,
-                                hashstr=hashstr,
-                                ts=datetime.datetime.now(),
-                                path="",
-                                query=query,
-                                hashes=hashes,
-                            )
-                        )
-                    continue
-
-                # Save file
-                filename = hashstr[:8]
-                extension = img.format.lower()
-                image_path = f"{outdir}/{filename}.{extension}"
-                with open(image_path, "wb") as f:
-                    f.write(contents)
-                logger.debug(f"Downloaded {link} to {image_path}")
-
-                # Update DB
+            # Run expensive filters (e.g. LLMs)
+            keep, code = await self.apply_filters(
+                url=link,
+                query=query,
+                contents=contents,
+                image=img,
+                hashes=hashes,
+                filters=self.stage2filters["expensive"],
+            )
+            if not keep:
                 if self.db:
+                    # Remember this image to avoid performing expensive computations again
                     self.db.put(
                         Result(
                             url=link,
                             hashstr=hashstr,
                             ts=datetime.datetime.now(),
-                            path=image_path,
+                            path="",
                             query=query,
                             hashes=hashes,
                         )
                     )
+                return (
+                    None,
+                    code,
+                )
 
-                q_stats["new"] += 1
-                filtered_results.add(image_path)
+            # Save file
+            filename = hashstr[:8]
+            extension = img.format.lower()
+            image_path = f"{outdir}/{filename}.{extension}"
+            with open(image_path, "wb") as f:
+                f.write(contents)
+            logger.debug(f"Downloaded {link} to {image_path}")
 
-            # Aggregate statistics
-            all_results = all_results.union(filtered_results)
-            logger.info(f"Done {query=} | {print_stats(q_stats)}")
-            add_stats(run_stats, q_stats)
-            logger.info(
-                f"Cumulative | {print_stats(run_stats)} | all={len(all_results)}"
-            )
-            if len(all_results) >= count:
-                break  # collected enough images
+            # Update DB
+            if self.db:
+                self.db.put(
+                    Result(
+                        url=link,
+                        hashstr=hashstr,
+                        ts=datetime.datetime.now(),
+                        path=image_path,
+                        query=query,
+                        hashes=hashes,
+                    )
+                )
 
-        return all_results
+            return (image_path, "new")
 
-    async def download(self, link: str) -> tuple[str, bytes | None]:
-        try:
-            response = await self.client.get(link, timeout=10)
-            response.raise_for_status()
-            contents = response.content
-            return (link, contents)
         except Exception as e:
             str_e = str(e).replace("\n", " ")
             logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
-            return (link, None)
+            return (None, "err")
 
     async def apply_filters(
         *args, filters: list[Filter], **kwargs
