@@ -115,7 +115,7 @@ class Scraper:
                 try:
                     img = Image.open(io.BytesIO(contents))
                 except OSError as e:
-                    logger.debug(f"Bad image {link}: {type(e)} {str_e}")
+                    logger.debug(f"Bad image {link}: {type(e)} {str(e)}")
                     q_stats["err"] += 1
                     continue
 
