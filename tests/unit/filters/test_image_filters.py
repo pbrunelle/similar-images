@@ -1,7 +1,9 @@
-from similar_images.filters.filter import FilterResult, FilterStage
-from similar_images.filters.image_filters import ImageFilter
 import pytest
 from PIL import Image
+
+from similar_images.filters.filter import FilterResult, FilterStage
+from similar_images.filters.image_filters import ImageFilter
+
 
 @pytest.mark.parametrize(
     "x,y,expected",
@@ -13,7 +15,7 @@ from PIL import Image
         (600, 1000, True),
         (1000, 600, True),
         (1500, 700, True),
-    ]
+    ],
 )
 def test_image_filter(x, y, expected):
     # GIVEN
@@ -23,4 +25,3 @@ def test_image_filter(x, y, expected):
     result = image_filter.filter(img=img, url="http")
     # THEN
     assert result.keep == expected
-

@@ -1,19 +1,20 @@
-from pydantic import BaseModel
 from typing import Literal
 
+from pydantic import BaseModel
 
 
 class FilterResult(BaseModel):
     keep: bool
     explanation: str | None = None
 
+
 type FilterStage = Literal["url", "contents", "hashes", "image"]
 
-class Filter:
 
+class Filter:
     def stage(self) -> FilterStage:
         raise NotImplementedError()
-        
+
     def stat_name(self) -> str:
         raise NotImplementedError()
 

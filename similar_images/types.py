@@ -1,8 +1,9 @@
 import datetime
 import logging
+from typing import Literal
 
 from pydantic import BaseModel
-from typing import Literal
+
 
 class CommonConfiguration(BaseModel):
     outdir: str | None = None
