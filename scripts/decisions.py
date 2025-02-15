@@ -12,9 +12,9 @@ def decisions(decision_file: str) -> None:
             decision = Decision.model_validate_json(line)
             answer = decision.answer()
             d[answer].append(decision)
-    counts = dict((k, len(v)) for k,v in d.items())
+    counts = dict((k, len(v)) for k, v in d.items())
     for answer, decisions in d.items():
-        print(f'{answer} {",".join([decision.image_path for decision in decisions])}')
+        print(f"{answer} {','.join([decision.image_path for decision in decisions])}")
     print(dict(counts))
 
 

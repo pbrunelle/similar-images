@@ -6,7 +6,10 @@ create-venv:
 	$(SOURCE_VENV) pip install -r requirements.in
 
 test:
-	$(SOURCE_VENV) python -m pytest tests
+	$(SOURCE_VENV) python -m pytest tests/unit
+
+integration-test:
+	$(SOURCE_VENV) python -m pytest tests/integration
 
 ruff:
 	$(SOURCE_VENV) python -m ruff check --select I --fix similar_images/ tests/ scripts/
