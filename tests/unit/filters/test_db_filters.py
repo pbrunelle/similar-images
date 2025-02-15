@@ -20,23 +20,19 @@ def db(tmp_path):
         )
     )
     db.put(Result(url="http2", hashstr="abcd"))
-    (
-        db.put(
-            Result(
-                url="http3",
-                hashstr="zzz",
-                hashes={"a": "0f2787ff93c5c3c1", "p": "b617333949f8383c"},
-            )
-        ),
+    db.put(
+        Result(
+            url="http3",
+            hashstr="zzz",
+            hashes={"a": "0f2787ff93c5c3c1", "p": "b617333949f8383c"},
+        )
     )
-    (
-        db.put(
-            Result(
-                url="http5",
-                hashstr="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                hashes={"a": "03200040006"},
-            )
-        ),
+    db.put(
+        Result(
+            url="http5",
+            hashstr="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            hashes={"a": "03200040006"},
+        )
     )
     yield db
 
