@@ -14,13 +14,14 @@ from similar_images.scraper import Scraper
         ((10, 10), False, "small"),
     ],
 )
-def test_apply_filters(size, expected_keep, expected_code):
+@pytest.mark.asyncio
+async def test_apply_filters(size, expected_keep, expected_code):
     # GIVEN
     scrapper = Scraper(browser=Mock(), client=AsyncMock())
     filters = [ImageFilter((100, 100), 50_000)]
     img = Image.new(mode="RGB", size=size)
     # WHEN
-    keep, code = scrapper.apply_filters(url="http", img=img, filters=filters)
+    keep, code = await scrapper.apply_filters(url="http", img=img, filters=filters)
     # THEN
     assert keep == expected_keep
     assert code == expected_code

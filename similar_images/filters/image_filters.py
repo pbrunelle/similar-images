@@ -5,7 +5,9 @@ from similar_images.filters.filter import Filter, FilterResult, FilterStage
 
 class ImageFilter(Filter):
     def __init__(self, min_size: tuple[int, int], min_area: int) -> None:
-        self._min_size = sorted(min_size)
+        assert len(min_size) == 2
+        assert min_area > 0
+        self._min_size = tuple(sorted(min_size))
         self._min_area = min_area
 
     def stage(self) -> FilterStage:
@@ -14,7 +16,7 @@ class ImageFilter(Filter):
     def stat_name(self) -> str:
         return "small"
 
-    def filter(self, url: str, img: Image, **kwargs) -> FilterResult:
+    async def filter(self, url: str, img: Image, **kwargs) -> FilterResult:
         size = sorted(img.size)
         area = size[0] * size[1]
         if (

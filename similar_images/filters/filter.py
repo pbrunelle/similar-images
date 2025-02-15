@@ -18,5 +18,5 @@ class Filter:
     def stat_name(self) -> str:
         raise NotImplementedError()
 
-    def filter(self, *args, **kwargs) -> FilterResult:
+    async def filter(self, *args, **kwargs) -> FilterResult:
         raise NotImplementedError()

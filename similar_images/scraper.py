@@ -27,15 +27,6 @@ class DownloadResponse(BaseModel):
     err: bool = False
 
 
-# links: int = 0
-# dup_url: int = 0
-# dup_hash: int = 0
-# dup_near: int = 0
-# small: int = 0
-# err: int = 0
-# new: int = 0
-
-
 def add_stats(stats: dict[str, int], other_stats: dict[str, int]):
     for k, v in other_stats.items():
         stats[k] += v
@@ -47,9 +38,10 @@ def print_stats(stats: dict[str, int]):
     dup_hash = stats.get("dup_hash", 0)
     dup_near = stats.get("dup_near", 0)
     small = stats.get("small", 0)
+    llm = stats.get("llm", 0)
     err = stats.get("err", 0)
     new = stats.get("new", 0)
-    return f"links={links} | dup:url={dup_url} dup:hash={dup_hash} dup:near={dup_near} small={small} err={err} | new={new}"
+    return f"links={links} | dup:url={dup_url} dup:hash={dup_hash} dup:near={dup_near} small={small} llm={llm} err={err} | new={new}"
 
 
 class Scraper:
@@ -96,8 +88,8 @@ class Scraper:
             # Filter based on URL
             filtered = set()
             for link in links:
-                keep, code = self.apply_filters(
-                    url=link, filters=self.stage2filters["url"]
+                keep, code = await self.apply_filters(
+                    query=query, url=link, filters=self.stage2filters["url"]
                 )
                 if keep:
                     filtered.add(link)
@@ -119,8 +111,9 @@ class Scraper:
 
                 # Filter based on image contents
                 img = Image.open(io.BytesIO(contents))
-                keep, code = self.apply_filters(
+                keep, code = await self.apply_filters(
                     url=link,
+                    query=query,
                     contents=contents,
                     img=img,
                     filters=self.stage2filters["contents"],
@@ -137,12 +130,26 @@ class Scraper:
                     "dv": str(imagehash.dhash_vertical(img)),
                     "w": str(imagehash.whash(img)),
                 }
-                keep, code = self.apply_filters(
+                keep, code = await self.apply_filters(
                     url=link,
+                    query=query,
                     contents=contents,
                     image=img,
                     hashes=hashes,
                     filters=self.stage2filters["hashes"],
+                )
+                if not keep:
+                    q_stats[code] += 1
+                    continue
+
+                # Run expensive filters (e.g. LLMs)
+                keep, code = await self.apply_filters(
+                    url=link,
+                    query=query,
+                    contents=contents,
+                    image=img,
+                    hashes=hashes,
+                    filters=self.stage2filters["expensive"],
                 )
                 if not keep:
                     q_stats[code] += 1
@@ -197,11 +204,11 @@ class Scraper:
             logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
             return (link, None)
 
-    def apply_filters(
+    async def apply_filters(
         *args, filters: list[Filter], **kwargs
     ) -> tuple[bool, str | None]:
         for filter in filters:
-            filter_result = filter.filter(**kwargs)
+            filter_result = await filter.filter(**kwargs)
             if not filter_result.keep:
                 logger.debug(filter_result.explanation)
                 return (False, filter.stat_name())

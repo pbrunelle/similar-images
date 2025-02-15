@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import fire
 
@@ -15,11 +16,31 @@ from similar_images.filters.db_filters import (
     DbUrlFilter,
 )
 from similar_images.filters.filter import Filter
+from similar_images.filters.gemini_filters import GeminiFilter
 from similar_images.filters.image_filters import ImageFilter
 from similar_images.scraper import Scraper
-from similar_images.types import ScrapeConfiguration
+from similar_images.types import CommonConfiguration, ScrapeConfiguration
 
 logger = logging.getLogger()
+
+
+def get_filters(config: CommonConfiguration, db: CrappyDB) -> list[Filter]:
+    if not config.filters:
+        return []
+    ret = []
+    for k, v in config.filters.items():
+        match k:
+            case "DbUrlFilter":
+                ret.append(DbUrlFilter(db))
+            case "DbExactDupFilter":
+                ret.append(DbExactDupFilter(db))
+            case "DbNearDupFilter":
+                ret.append(DbNearDupFilter(db))
+            case "ImageFilter":
+                ret.append(ImageFilter(**v))
+            case "GeminiFilter":
+                ret.append(GeminiFilter(**v))
+    return ret
 
 
 def scrape(configfile: str) -> None:
@@ -50,12 +71,8 @@ def scrape(configfile: str) -> None:
         run.resolve(scrape_config.common)
         logger.info(f"Scraping {run=}")
         db = CrappyDB(run.database)
-        filters: list[Filter] = [
-            DbUrlFilter(db),
-            DbExactDupFilter(db),
-            DbNearDupFilter(db),
-            ImageFilter((600, 800), 550_000),
-        ]
+        filters: list[Filter] = get_filters(run, db)
+        logger.info(f"Using filters: {filters}")
         home_tmp_dir = tempfile.mkdtemp(dir=os.environ["HOME"])
         browser = BingSelenium(
             wait_first_load=run.wait_first_load,

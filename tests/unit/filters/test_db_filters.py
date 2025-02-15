@@ -40,11 +40,12 @@ def db(tmp_path):
 @pytest.mark.parametrize(
     "url,expected", [("http1", False), ("http5", False), ("http4", True), ("", True)]
 )
-def test_db_filter_url(db, url, expected):
+@pytest.mark.asyncio
+async def test_db_filter_url(db, url, expected):
     # GIVEN
     db_filter = DbUrlFilter(db=db)
     # WHEN
-    result = db_filter.filter(url=url)
+    result = await db_filter.filter(url=url)
     # THEN
     assert result.keep == expected
 
@@ -62,11 +63,12 @@ def test_db_filter_url(db, url, expected):
         ("", False),
     ],
 )
-def test_db_filter_exact_dup(db, contents, expected):
+@pytest.mark.asyncio
+async def test_db_filter_exact_dup(db, contents, expected):
     # GIVEN
     db_filter = DbExactDupFilter(db=db)
     # WHEN
-    result = db_filter.filter(contents=contents.encode("utf-8"), url="extra")
+    result = await db_filter.filter(contents=contents.encode("utf-8"), url="extra")
     # THEN
     assert result.keep == expected
 
@@ -80,10 +82,11 @@ def test_db_filter_exact_dup(db, contents, expected):
         ({"a": "02200040006"}, False),
     ],
 )
-def test_db_filter_near_dup(db, hashes, expected):
+@pytest.mark.asyncio
+async def test_db_filter_near_dup(db, hashes, expected):
     # GIVEN
     db_filter = DbNearDupFilter(db=db)
     # WHEN
-    result = db_filter.filter(hashes=hashes, url="extra")
+    result = await db_filter.filter(hashes=hashes, url="extra")
     # THEN
     assert result.keep == expected

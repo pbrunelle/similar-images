@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Literal
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ class CommonConfiguration(BaseModel):
     wait_first_load: float | None = None
     headless: bool | None = None
     safe_search: bool | None = None
+    filters: dict[str, Any] | None = None
 
 
 class RunConfiguration(CommonConfiguration):
@@ -27,6 +28,7 @@ class RunConfiguration(CommonConfiguration):
             "wait_first_load",
             "headless",
             "safe_search",
+            "filters",
         ]
         for field in fields_to_resolve:
             if getattr(self, field) is None:

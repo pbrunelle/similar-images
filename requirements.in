@@ -8,6 +8,7 @@ pillow
 
 # Tests
 pytest
+pytest-asyncio
 
 # Actual
 beautifulsoup4

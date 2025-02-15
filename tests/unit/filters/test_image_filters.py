@@ -17,11 +17,12 @@ from similar_images.filters.image_filters import ImageFilter
         (1500, 700, True),
     ],
 )
-def test_image_filter(x, y, expected):
+@pytest.mark.asyncio
+async def test_image_filter(x, y, expected):
     # GIVEN
     image_filter = ImageFilter(min_size=(800, 500), min_area=600_000)
     img = Image.new(mode="RGB", size=(x, y))
     # WHEN
-    result = image_filter.filter(img=img, url="http")
+    result = await image_filter.filter(img=img, url="http")
     # THEN
     assert result.keep == expected
