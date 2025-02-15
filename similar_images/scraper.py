@@ -109,6 +109,9 @@ class Scraper:
                     q_stats["err"] += 1
                     continue
 
+                # https://stackoverflow.com/a/64994148
+                hashstr = hashlib.sha256(contents).hexdigest()
+
                 # Filter based on image contents
                 img = Image.open(io.BytesIO(contents))
                 keep, code = await self.apply_filters(
@@ -153,11 +156,21 @@ class Scraper:
                 )
                 if not keep:
                     q_stats[code] += 1
+                    if self.db:
+                        # Remember this image to avoid expensive computations again
+                        self.db.put(
+                            Result(
+                                url=link,
+                                hashstr=hashstr,
+                                ts=datetime.datetime.now(),
+                                path="",
+                                query=query,
+                                hashes=hashes,
+                            )
+                        )
                     continue
 
                 # Save file
-                # https://stackoverflow.com/a/64994148
-                hashstr = hashlib.sha256(contents).hexdigest()
                 filename = hashstr[:8]
                 extension = img.format.lower()
                 image_path = f"{outdir}/{filename}.{extension}"

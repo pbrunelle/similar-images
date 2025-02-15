@@ -32,9 +32,7 @@ class GeminiFilter(Filter):
     def stat_name(self) -> str:
         return "llm"
 
-    async def filter(
-        self, url: str, contents: bytes, **kwargs
-    ) -> FilterResult:
+    async def filter(self, url: str, contents: bytes, **kwargs) -> FilterResult:
         decision = await self._gemini.chat(query=self._query, image_contents=[contents])
         if decision.decision in self._keep_responses:
             return FilterResult(keep=True)
