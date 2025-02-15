@@ -100,7 +100,7 @@ class Gemini:
             "contents": {"parts": parts},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={self._api_key}"
-        logger.debug(f"Gemini: {url=} {len(str(data))=}")
+        logger.debug(f"Gemini: {url=} {query=} {len(str(data))=}")
         response = await self._httpx_client.post(url, json=data)
         response.raise_for_status()
         image_path = image_paths[0] if image_paths else ""

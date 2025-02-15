@@ -33,9 +33,9 @@ class GeminiFilter(Filter):
         return "llm"
 
     async def filter(
-        self, url: str, query: str, contents: bytes, **kwargs
+        self, url: str, contents: bytes, **kwargs
     ) -> FilterResult:
-        decision = await self._gemini.chat(query=query, image_contents=[contents])
+        decision = await self._gemini.chat(query=self._query, image_contents=[contents])
         if decision.decision in self._keep_responses:
             return FilterResult(keep=True)
         else:
