@@ -1,5 +1,5 @@
 from similar_images.crappy_db import CrappyDB
-from similar_images.filters.filter import FilterResult, FilterStage
+from similar_images.filters.filter import FilterResult, FilterStage, Filter
 import hashlib
 from similar_images.types import Result
 
@@ -14,7 +14,7 @@ class DbFilter(Filter):
         else:
             return FilterResult(keep=False, explanation=f"{record}")
 
-class DbFilterUrl(DbFilter):
+class DbUrlFilter(DbFilter):
 
     """
     def __init__(self, db: CrappyDB) -> None:
@@ -31,7 +31,7 @@ class DbFilterUrl(DbFilter):
         record = self._db.get("url", url)
         return self._return_result(record)
 
-class DbFilterExactDuplicate(DbFilter):
+class DbExactDupFilter(DbFilter):
 
     def stage(self) -> FilterStage:
         return "contents"
@@ -44,7 +44,7 @@ class DbFilterExactDuplicate(DbFilter):
         record = self._db.get("hashstr", hashstr)
         return self._return_result(record)
 
-class DbFilterNearDuplicate(DbFilter):
+class DbNearDupFilter(DbFilter):
 
     def stage(self) -> FilterStage:
         return "hashes"

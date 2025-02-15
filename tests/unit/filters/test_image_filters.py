@@ -20,7 +20,7 @@ def test_image_filter(x, y, expected):
     image_filter = ImageFilter(min_size=(800, 500), min_area=600_000)
     img = Image.new(mode="RGB", size=(x, y))
     # WHEN
-    result = image_filter.filter(img, url="http")
+    result = image_filter.filter(img=img, url="http")
     # THEN
     assert result.keep == expected
 
