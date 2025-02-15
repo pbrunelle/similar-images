@@ -9,12 +9,12 @@ class ImageFilter(Filter):
         self._min_area = min_area
 
     def stage(self) -> FilterStage:
-        return "image"
+        return "contents"
 
     def stat_name(self) -> str:
         return "small"
 
-    def filter(self, img: Image, **kwargs) -> FilterResult:
+    def filter(self, url: str, img: Image, **kwargs) -> FilterResult:
         size = sorted(img.size)
         area = size[0] * size[1]
         if (
@@ -22,6 +22,7 @@ class ImageFilter(Filter):
             or size[1] < self._min_size[1]
             or area < self._min_area
         ):
-            return FilterResult(keep=False, explanation=f"{img.size}")
+            explanation = f"Too small: {url}: {img.size}"
+            return FilterResult(keep=False, explanation=explanation)
         else:
             return FilterResult(keep=True)

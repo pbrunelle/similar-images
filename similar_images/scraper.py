@@ -13,6 +13,8 @@ from pydantic import BaseModel
 
 from similar_images.crappy_db import CrappyDB
 from similar_images.types import Result
+from similar_images.filters.filter import Filter
+from collections import defaultdict
 
 logger = logging.getLogger()
 
@@ -25,139 +27,162 @@ class DownloadResponse(BaseModel):
     err: bool = False
 
 
-class Statistics(BaseModel):
-    links: int = 0
-    dup_url: int = 0
-    dup_hash: int = 0
-    dup_near: int = 0
-    small: int = 0
-    err: int = 0
-    new: int = 0
+# links: int = 0
+# dup_url: int = 0
+# dup_hash: int = 0
+# dup_near: int = 0
+# small: int = 0
+# err: int = 0
+# new: int = 0
 
-    def add(self, other):
-        self.links += other.links
-        self.dup_url += other.dup_url
-        self.dup_hash += other.dup_hash
-        self.dup_near += other.dup_near
-        self.small += other.small
-        self.err += other.err
-        self.new += other.new
+def add_stats(stats: dict[str, int], other_stats: dict[str, int]):
+    for k, v in other_stats.items():
+        stats[k] += v
 
-    def __str__(self):
-        return f"links={self.links} | dup:url={self.dup_url} dup:hash={self.dup_hash} dup:near={self.dup_near} small={self.small} err={self.err} | new={self.new}"
+def print_stats(stats: dict[str, int]):
+    links = stats.get("links", 0)
+    dup_url = stats.get("dup_url", 0)
+    dup_hash = stats.get("dup_hash", 0)
+    dup_near = stats.get("dup_near", 0)
+    small = stats.get("small", 0)
+    err = stats.get("err", 0)
+    new = stats.get("new", 0)
+    return f"links={links} | dup:url={dup_url} dup:hash={dup_hash} dup:near={dup_near} small={small} err={err} | new={new}"
 
 
 class Scraper:
-    def __init__(self, browser: Any, client: httpx.AsyncClient | None = None):
+    def __init__(self, browser: Any, client: httpx.AsyncClient | None = None, db: CrappyDB | None = None,
+        filters: list[Filter] | None = None,):
         self.browser = browser
         self.client = (
             client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
         )
+        self.db = db
+        filters = filters if filters else []
+        self.stage2filters: dict[str, list[Filter]] = defaultdict(list)
+        for filter in filters:
+            self.stage2filters[filter.stage()].append(filter)
 
     def scrape(
         self,
         queries: str,
         outdir: str,
         count: int,
-        db: CrappyDB | None = None,
     ) -> list[str]:
-        return asyncio.run(self.scrape_async(queries, outdir, count, db))
+        return asyncio.run(self.scrape_async(queries, outdir, count))
 
     async def scrape_async(
         self,
         queries: str,
         outdir: str,
         count: int,
-        db: CrappyDB | None,
     ) -> set[str]:
-        all_results = set()
-        # for query in queries:
-        run_stats = Statistics()
+        all_results: set[str] = set()
+        run_stats: dict[str, int] = defaultdict(int)
+
         for query in exrex.generate(queries):
-            q_stats = Statistics()
+            q_stats = defaultdict(int)
             query = query.strip()
             links = set(self.browser.search_images(query, count))
-            q_stats.links = len(links)
-            if db:
-                filtered = set()
-                for link in links:
-                    record = db.get("url", link)
-                    if not record:
-                        filtered.add(link)
-                    else:
-                        logger.debug(f"Already downloaded (URL): {link}: {record}")
-                        q_stats.dup_url += 1
-                links = filtered
-            tasks = [self.download(link, outdir, db, query) for link in links]
+            q_stats["links"] = len(links)
+
+            # Filter based on URL
+            filtered = set()
+            for link in links:
+                keep, code = self.apply_filters(link=link, filters=self.stage2filters["url"])
+                if keep:
+                    filtered.add(link)
+                else:
+                    q_stats[filter.stat_name()] += 1
+            links = filtered
+            
+            # Download images (do not save to disk yet)
+            tasks = [self.download(link) for link in links]
             results = await asyncio.gather(*tasks)
-            q_stats.dup_hash = len([r for r in results if r.dup_hashstr])
-            q_stats.dup_near = len([r for r in results if r.dup_near])
-            q_stats.small = len([r for r in results if r.small])
-            q_stats.err = len([r for r in results if r.err])
-            results = set([r.image_path for r in results if r.image_path])
-            q_stats.new = len(results)
-            all_results = all_results.union(results)
-            logger.info(f"Done {query=} | {q_stats}")
-            run_stats.add(q_stats)
-            logger.info(f"Cumulative | {run_stats} | all={len(all_results)}")
+
+            # Apply filters
+            filtered_results = set()
+            for link, contents in results:
+                # Downloaded?
+                if not contents:
+                    q_stats["err"] += 1
+                    continue
+
+                # Filter based on image contents
+                img = Image.open(io.BytesIO(contents))
+                keep, code = self.apply_filters(link=link, contents=contents, img=img,filters=self.stage2filters["contents"])
+                if not keep:
+                    q_stats[code] += 1
+                    continue
+
+                # Filter based on hashes
+                hashes = {
+                    "a": str(imagehash.average_hash(img)),
+                    "p": str(imagehash.phash(img)),
+                    "d": str(imagehash.dhash(img)),
+                    "dv": str(imagehash.dhash_vertical(img)),
+                    "w": str(imagehash.whash(img)),
+                }
+                keep, code = self.apply_filters(link=link, contents=contents, image=img, hashes=hashes, filters=self.stage2filters["hashes"])
+                if not keep:
+                    q_stats[code] += 1
+                    continue
+
+                # Save file
+                # https://stackoverflow.com/a/64994148
+                hashstr = hashlib.sha256(contents).hexdigest()
+                filename = hashstr[:8]
+                extension = img.format.lower()
+                image_path = f"{outdir}/{filename}.{extension}"
+                with open(image_path, "wb") as f:
+                    f.write(contents)
+                logger.debug(f"Downloaded {link} to {image_path}")
+
+                # Update DB
+                if self.db:
+                    self.db.put(
+                        Result(
+                            url=link,
+                            hashstr=hashstr,
+                            ts=datetime.datetime.now(),
+                            path=image_path,
+                            query=query,
+                            hashes=hashes,
+                        )
+                    )
+                
+                q_stats["new"] += 1
+                filtered_results.add(image_path)
+    
+            # Aggregate statistics
+            all_results = all_results.union(filtered_results)
+            logger.info(f"Done {query=} | {print_stats(q_stats)}")
+            add_stats(run_stats, q_stats)
+            logger.info(f"Cumulative | {print_stats(run_stats)} | all={len(all_results)}")
             if len(all_results) >= count:
                 break  # collected enough images
+
         return all_results
 
     async def download(
-        self, link: str, outdir: str, db: CrappyDB | None, query: str
-    ) -> DownloadResponse:
+        self, link: str
+    ) -> tuple[str, bytes|None]:
         try:
             response = await self.client.get(link, timeout=10)
             response.raise_for_status()
             contents = response.content
-            # https://stackoverflow.com/a/64994148
-            hashstr = hashlib.sha256(contents).hexdigest()
-            if db:
-                record = db.get("hashstr", hashstr)
-                if record:
-                    logger.debug(f"Already downloaded (hashstr): {link}: {record}")
-                    return DownloadResponse(dup_hashstr=True)
-            img = Image.open(io.BytesIO(contents))
-            size = sorted(img.size)
-            MIN_SIZE = sorted((640, 480))
-            if size[0] < MIN_SIZE[0] or size[1] < MIN_SIZE[1]:
-                logger.debug(f"Too small: {link}: {img.size}")
-                return DownloadResponse(small=True)
-            # Get hashes to detect near duplicates
-            hashes = {
-                "a": str(imagehash.average_hash(img)),
-                "p": str(imagehash.phash(img)),
-                "d": str(imagehash.dhash(img)),
-                "dv": str(imagehash.dhash_vertical(img)),
-                "w": str(imagehash.whash(img)),
-            }
-            if db:
-                record = db.find_near_duplicate(hashes)
-                if record:
-                    logger.debug(
-                        f"Already downloaded (near duplicate): {link}: {record}"
-                    )
-                    return DownloadResponse(dup_near=True)
-            filename = hashstr[:8]
-            extension = img.format.lower()
-            image_path = f"{outdir}/{filename}.{extension}"
-            with open(image_path, "wb") as f:
-                f.write(contents)
-            logger.debug(f"Downloaded {link} to {image_path}")
-            if db:
-                db.put(
-                    Result(
-                        url=link,
-                        hashstr=hashstr,
-                        ts=datetime.datetime.now(),
-                        path=image_path,
-                        query=query,
-                        hashes=hashes,
-                    )
-                )
-            return DownloadResponse(image_path=image_path)
+            return (link, contents)
         except Exception as e:
             str_e = str(e).replace("\n", " ")
             logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
-            return DownloadResponse(err=True)
+            return (link, None)
+        
+    def apply_filters(*args, filters: list[Filter], **kwargs) -> tuple[bool, str|None]:
+        for filter in filters:
+            filter_result = filter.filter(**kwargs)
+            if not filter_result.keep:
+                logger.debug(filter_result.explanation)
+                return (False, filter.stat_name())
+        return (True, None)
+        
+

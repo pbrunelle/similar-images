@@ -9,11 +9,12 @@ class DbFilter(Filter):
     def __init__(self, db: CrappyDB) -> None:
         self._db = db
 
-    def _return_result(self, record: Result) -> FilterResult:
+    def _return_result(self, url: str, record: Result) -> FilterResult:
         if not record:
             return FilterResult(keep=True)
         else:
-            return FilterResult(keep=False, explanation=f"{record}")
+            explanation = f"Already downloaded ({self.stat_name()}): {url}: ({record})"
+            return FilterResult(keep=False, explanation=explanation)
 
 
 class DbUrlFilter(DbFilter):
@@ -30,7 +31,7 @@ class DbUrlFilter(DbFilter):
 
     def filter(self, url: str, **kwargs) -> FilterResult:
         record = self._db.get("url", url)
-        return self._return_result(record)
+        return self._return_result(url, record)
 
 
 class DbExactDupFilter(DbFilter):
@@ -40,10 +41,11 @@ class DbExactDupFilter(DbFilter):
     def stat_name(self) -> str:
         return "dup_hashstr"
 
-    def filter(self, contents: bytes, **kwargs) -> FilterResult:
+    def filter(self, url: str, contents: bytes, **kwargs) -> FilterResult:
+        # https://stackoverflow.com/a/64994148
         hashstr = hashlib.sha256(contents).hexdigest()
         record = self._db.get("hashstr", hashstr)
-        return self._return_result(record)
+        return self._return_result(url, record)
 
 
 class DbNearDupFilter(DbFilter):
@@ -53,6 +55,6 @@ class DbNearDupFilter(DbFilter):
     def stat_name(self) -> str:
         return "dup_near"
 
-    def filter(self, hashes: dict[str, str], **kwargs) -> FilterResult:
+    def filter(self, url: str, hashes: dict[str, str], **kwargs) -> FilterResult:
         record = self._db.find_near_duplicate(hashes)
-        return self._return_result(record)
+        return self._return_result(url, record)

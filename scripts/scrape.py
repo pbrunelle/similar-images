@@ -11,6 +11,9 @@ from similar_images.bing_selenium import BingSelenium
 from similar_images.crappy_db import CrappyDB
 from similar_images.scraper import Scraper
 from similar_images.types import ScrapeConfiguration
+from similar_images.filters.db_filters import DbExactDupFilter, DbNearDupFilter, DbUrlFilter
+from similar_images.filters.image_filters import ImageFilter
+from similar_images.filters.filter import Filter
 
 logger = logging.getLogger()
 
@@ -38,10 +41,17 @@ def scrape(configfile: str) -> None:
         "PIL.Image",
     ]:
         logging.getLogger(module).disabled = True
+
     for run in scrape_config.runs:
         run.resolve(scrape_config.common)
         logger.info(f"Scraping {run=}")
         db = CrappyDB(run.database)
+        filters: list[Filter] = [
+            DbUrlFilter(db),
+            DbExactDupFilter(db),
+            DbNearDupFilter(db),
+            ImageFilter((600, 800), 600_000),
+        ]
         home_tmp_dir = tempfile.mkdtemp(dir=os.environ["HOME"])
         browser = BingSelenium(
             wait_first_load=run.wait_first_load,
@@ -50,11 +60,11 @@ def scrape(configfile: str) -> None:
             headless=run.headless,
             user_data_dir=home_tmp_dir,
         )
-        scraper = Scraper(browser=browser)
+        scraper = Scraper(browser=browser, db=db, filters=filters)
         now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         outdir = f"{run.outdir}/{now_str}"
         Path(outdir).mkdir(parents=True, exist_ok=True)
-        scraper.scrape(queries=run.queries, outdir=outdir, count=run.count, db=db)
+        scraper.scrape(queries=run.queries, outdir=outdir, count=run.count)
         browser.done()
         shutil.rmtree(home_tmp_dir)
 
