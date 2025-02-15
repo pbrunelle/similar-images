@@ -2,7 +2,7 @@ import datetime
 import logging
 
 from pydantic import BaseModel
-
+from typing import Literal
 
 class CommonConfiguration(BaseModel):
     outdir: str | None = None
