@@ -18,13 +18,13 @@ class Decision(BaseModel):
     status_code: int
 
     def answer(self):
-        # print(self)
+        print(self)
         d: str = self.decision
         if (idx := d.find("```json")) != -1:
             d = d[idx:].removeprefix("```json")
         if (idx := d.rfind("```")) != -1:
             d = d[:idx]
-        d = d.strip()
+        d = d.strip().removesuffix(".")
         if d.isalpha() or d == "PROHIBITED_CONTENT":
             return d
         answer = json.loads(d)
