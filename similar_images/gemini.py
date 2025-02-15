@@ -20,7 +20,7 @@ class Decision(BaseModel):
     status_code: int
 
     def answer(self):
-        print(self)
+        logger.debug(self)
         d: str = self.decision
         if (idx := d.find("```json")) != -1:
             d = d[idx:].removeprefix("```json")

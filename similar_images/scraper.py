@@ -112,8 +112,14 @@ class Scraper:
                 # https://stackoverflow.com/a/64994148
                 hashstr = hashlib.sha256(contents).hexdigest()
 
+                try:
+                    img = Image.open(io.BytesIO(contents))
+                except OSError as e:
+                    logger.debug(f"Bad image {link}: {type(e)} {str_e}")
+                    q_stats["err"] += 1
+                    continue
+
                 # Filter based on image contents
-                img = Image.open(io.BytesIO(contents))
                 keep, code = await self.apply_filters(
                     url=link,
                     query=query,

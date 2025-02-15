@@ -1,5 +1,3 @@
-import asyncio
-
 import httpx
 
 from similar_images.filters.filter import Filter, FilterResult, FilterStage
