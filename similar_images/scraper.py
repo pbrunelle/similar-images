@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import io
 import logging
+from collections import defaultdict
 from typing import Any
 
 import exrex
@@ -12,9 +13,8 @@ from PIL import Image
 from pydantic import BaseModel
 
 from similar_images.crappy_db import CrappyDB
-from similar_images.types import Result
 from similar_images.filters.filter import Filter
-from collections import defaultdict
+from similar_images.types import Result
 
 logger = logging.getLogger()
 
@@ -35,9 +35,11 @@ class DownloadResponse(BaseModel):
 # err: int = 0
 # new: int = 0
 
+
 def add_stats(stats: dict[str, int], other_stats: dict[str, int]):
     for k, v in other_stats.items():
         stats[k] += v
+
 
 def print_stats(stats: dict[str, int]):
     links = stats.get("links", 0)
@@ -51,8 +53,13 @@ def print_stats(stats: dict[str, int]):
 
 
 class Scraper:
-    def __init__(self, browser: Any, client: httpx.AsyncClient | None = None, db: CrappyDB | None = None,
-        filters: list[Filter] | None = None,):
+    def __init__(
+        self,
+        browser: Any,
+        client: httpx.AsyncClient | None = None,
+        db: CrappyDB | None = None,
+        filters: list[Filter] | None = None,
+    ):
         self.browser = browser
         self.client = (
             client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
@@ -89,13 +96,15 @@ class Scraper:
             # Filter based on URL
             filtered = set()
             for link in links:
-                keep, code = self.apply_filters(link=link, filters=self.stage2filters["url"])
+                keep, code = self.apply_filters(
+                    url=link, filters=self.stage2filters["url"]
+                )
                 if keep:
                     filtered.add(link)
                 else:
-                    q_stats[filter.stat_name()] += 1
+                    q_stats[code] += 1
             links = filtered
-            
+
             # Download images (do not save to disk yet)
             tasks = [self.download(link) for link in links]
             results = await asyncio.gather(*tasks)
@@ -110,7 +119,12 @@ class Scraper:
 
                 # Filter based on image contents
                 img = Image.open(io.BytesIO(contents))
-                keep, code = self.apply_filters(link=link, contents=contents, img=img,filters=self.stage2filters["contents"])
+                keep, code = self.apply_filters(
+                    url=link,
+                    contents=contents,
+                    img=img,
+                    filters=self.stage2filters["contents"],
+                )
                 if not keep:
                     q_stats[code] += 1
                     continue
@@ -123,7 +137,13 @@ class Scraper:
                     "dv": str(imagehash.dhash_vertical(img)),
                     "w": str(imagehash.whash(img)),
                 }
-                keep, code = self.apply_filters(link=link, contents=contents, image=img, hashes=hashes, filters=self.stage2filters["hashes"])
+                keep, code = self.apply_filters(
+                    url=link,
+                    contents=contents,
+                    image=img,
+                    hashes=hashes,
+                    filters=self.stage2filters["hashes"],
+                )
                 if not keep:
                     q_stats[code] += 1
                     continue
@@ -150,23 +170,23 @@ class Scraper:
                             hashes=hashes,
                         )
                     )
-                
+
                 q_stats["new"] += 1
                 filtered_results.add(image_path)
-    
+
             # Aggregate statistics
             all_results = all_results.union(filtered_results)
             logger.info(f"Done {query=} | {print_stats(q_stats)}")
             add_stats(run_stats, q_stats)
-            logger.info(f"Cumulative | {print_stats(run_stats)} | all={len(all_results)}")
+            logger.info(
+                f"Cumulative | {print_stats(run_stats)} | all={len(all_results)}"
+            )
             if len(all_results) >= count:
                 break  # collected enough images
 
         return all_results
 
-    async def download(
-        self, link: str
-    ) -> tuple[str, bytes|None]:
+    async def download(self, link: str) -> tuple[str, bytes | None]:
         try:
             response = await self.client.get(link, timeout=10)
             response.raise_for_status()
@@ -176,13 +196,13 @@ class Scraper:
             str_e = str(e).replace("\n", " ")
             logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
             return (link, None)
-        
-    def apply_filters(*args, filters: list[Filter], **kwargs) -> tuple[bool, str|None]:
+
+    def apply_filters(
+        *args, filters: list[Filter], **kwargs
+    ) -> tuple[bool, str | None]:
         for filter in filters:
             filter_result = filter.filter(**kwargs)
             if not filter_result.keep:
                 logger.debug(filter_result.explanation)
                 return (False, filter.stat_name())
         return (True, None)
-        
-
