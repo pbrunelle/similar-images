@@ -85,7 +85,12 @@ def scrape(configfile: str) -> None:
         now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         outdir = f"{run.outdir}/{now_str}"
         Path(outdir).mkdir(parents=True, exist_ok=True)
-        scraper.scrape(queries=run.queries, outdir=outdir, count=run.count)
+        scraper.scrape(
+            queries=run.queries,
+            outdir=outdir,
+            count=run.count,
+            similar_images=run.similar_images,
+        )
         browser.done()
         shutil.rmtree(home_tmp_dir)
 

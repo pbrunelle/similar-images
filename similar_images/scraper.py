@@ -55,11 +55,16 @@ class Scraper:
 
     def scrape(
         self,
-        queries: str,
+        queries: str | None,
         outdir: str,
         count: int,
+        similar_images: list[str] | None = None,
     ) -> list[str]:
-        return asyncio.run(self.scrape_async(queries, outdir, count))
+        if queries:
+            return asyncio.run(self.scrape_async(queries, outdir, count))
+        if similar_images:
+            return asyncio.run(self.scrape_similar_async(similar_images, outdir, count))
+        return set()
 
     async def scrape_async(
         self,
@@ -87,6 +92,39 @@ class Scraper:
                 q_stats[code] += 1
             all_links = all_links.union(downloaded_links)
             logger.info(f"Done {query=} | {print_stats(q_stats)}")
+            add_stats(run_stats, q_stats)
+            logger.info(f"Cumulative | {print_stats(run_stats)}")
+            if len(all_links) >= count:
+                break  # collected enough images
+        return all_links
+
+    async def scrape_similar_async(
+        self,
+        similar_images: list[str],
+        outdir: str,
+        count: int,
+    ) -> set[str]:
+        all_links: set[str] = set()
+        run_stats: dict[str, int] = defaultdict(int)
+        for src_url in similar_images:
+            q_stats = defaultdict(int)
+            links = set(self.browser.search_similar_images(src_url, count))
+            q_stats["links"] += len(links)
+            tasks = [
+                self.process_link(link=link, query=src_url, outdir=outdir)
+                for link in links
+            ]
+            processed_links = await asyncio.gather(*tasks)
+            downloaded_links = set()
+            for link, code in processed_links:
+                if link:
+                    downloaded_links.add(link)
+                assert code
+                q_stats[code] += 1
+            all_links = all_links.union(downloaded_links)
+            logger.info(
+                f"Done searching similar to {src_url=} | {print_stats(q_stats)}"
+            )
             add_stats(run_stats, q_stats)
             logger.info(f"Cumulative | {print_stats(run_stats)}")
             if len(all_links) >= count:
