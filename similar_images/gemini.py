@@ -81,7 +81,7 @@ class Gemini:
                 extension = image_path.rsplit(".")[-1]
                 d = {
                     "inline_data": {
-                        "mime_type": f"image/{extension.format.lower()}",
+                        "mime_type": f"image/{extension.lower()}",
                         "data": base64.b64encode(f.read()).decode("ascii"),
                     }
                 }
