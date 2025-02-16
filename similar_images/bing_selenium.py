@@ -78,6 +78,7 @@ class BingSelenium:
     def search_similar_images(self, template_image_url: str, max_images: int = -1):
         done = set()
         i = 0
+        logger.info(f"Searching similar to {template_image_url=}")
         self.driver.get("https://www.bing.com/images")
         self.configure_safe_search()
         # time.sleep(self.wait_first_load)
