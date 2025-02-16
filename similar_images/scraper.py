@@ -73,6 +73,7 @@ class Scraper:
             q_stats = defaultdict(int)
             query = query.strip()
             links = set(self.browser.search_images(query, count))
+            q_stats["links"] += len(links)
             tasks = [
                 self.process_link(link=link, query=query, outdir=outdir)
                 for link in links
@@ -84,7 +85,6 @@ class Scraper:
                     downloaded_links.add(link)
                 assert code
                 q_stats[code] += 1
-            q_stats["links"] += len(downloaded_links)
             all_links = all_links.union(downloaded_links)
             logger.info(f"Done {query=} | {print_stats(q_stats)}")
             add_stats(run_stats, q_stats)
