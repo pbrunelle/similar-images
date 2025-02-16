@@ -1,7 +1,9 @@
 import os
 
+
 def _is_url(s: str) -> bool:
     return s.startswith("http://") or s.startswith("https://")
+
 
 def get_files(paths: list[str]) -> list[str]:
     files = []

@@ -20,7 +20,7 @@ class Decision(BaseModel):
     status_code: int
 
     def answer(self):
-        # logger.debug(self)
+        logger.debug(self)
         d: str = self.decision
         if (idx := d.find("```json")) != -1:
             d = d[idx:].removeprefix("```json")
@@ -66,7 +66,8 @@ class Gemini:
                 return await self.do_chat(query, image_paths, image_contents)
             except httpx.HTTPStatusError as ex:
                 logger.warning(f"Gemini failed {i=} on {image_paths=}: {type(ex)} {ex}")
-                await asyncio.sleep(self._retry_sleep)
+                if ex.response.status_code in (429, 503, 504):
+                    await asyncio.sleep(self._retry_sleep)
         image_path = image_paths[0] if image_paths else ""
         return Decision(
             image_path=image_path, content={}, decision=None, status_code=400
