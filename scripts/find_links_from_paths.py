@@ -1,7 +1,10 @@
-import fire
-import os
 import json
+import os
+
+import fire
+
 from similar_images.crappy_db import CrappyDB
+
 
 def get_url(db: CrappyDB, path: str) -> str | None:
     _, file = os.path.split(path)
@@ -11,13 +14,14 @@ def get_url(db: CrappyDB, path: str) -> str | None:
             return record.url
     return None
 
+
 def find_links_from_paths(db_path: str, paths: str) -> None:
     db = CrappyDB(db_path)
     urls = []
     for path in paths.split(","):
         if os.path.isfile(path):
-             if url := get_url(db, path):
-                 urls.append(url)
+            if url := get_url(db, path):
+                urls.append(url)
         elif os.path.isdir(path):
             for file in os.listdir(path):
                 subpath = os.path.join(path, file)

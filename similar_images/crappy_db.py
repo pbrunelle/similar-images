@@ -1,7 +1,8 @@
+from collections import defaultdict
 from pathlib import Path
 
 from similar_images.types import Result
-from collections import defaultdict
+
 
 def to_bit_str(s: str) -> str:
     return format(int(s, 16), "0>64b")
@@ -24,6 +25,7 @@ def near_duplicate_hash(
 
 INDEX_FIELDS = ["url", "hashstr"]
 
+
 class CrappyDB:
     """CrappyDB assumes a single process and a single thread accesses the storage file at a time."""
 
@@ -31,7 +33,9 @@ class CrappyDB:
         self.filename = filename
         Path(filename).touch()
         self._cache: list[Result] = []
-        self._index: dict[str, dict[str, Result]] = defaultdict(dict)  # field name -> field value -> result
+        self._index: dict[str, dict[str, Result]] = defaultdict(
+            dict
+        )  # field name -> field value -> result
         self.build_cache()
 
     def put(self, r: Result) -> None:

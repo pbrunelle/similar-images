@@ -14,6 +14,39 @@ from selenium.webdriver.common.keys import Keys
 logger = logging.getLogger()
 
 
+def _is_url(s: str) -> bool:
+    return s.startswith("http://") or s.startswith("https://")
+
+
+_JS_DROP_FILE = """
+    var target = arguments[0],
+        offsetX = arguments[1],
+        offsetY = arguments[2],
+        document = target.ownerDocument || document,
+        window = document.defaultView || window;
+
+    var input = document.createElement('INPUT');
+    input.type = 'file';
+    input.onchange = function () {
+    var rect = target.getBoundingClientRect(),
+        x = rect.left + (offsetX || (rect.width >> 1)),
+        y = rect.top + (offsetY || (rect.height >> 1)),
+        dataTransfer = { files: this.files };
+
+    ['dragenter', 'dragover', 'drop'].forEach(function (name) {
+        var evt = document.createEvent('MouseEvent');
+        evt.initMouseEvent(name, !0, !0, window, 0, 0, 0, x, y, !1, !1, !1, !1, 0, null);
+        evt.dataTransfer = dataTransfer;
+        target.dispatchEvent(evt);
+    });
+
+    setTimeout(function () { document.body.removeChild(input); }, 25);
+    };
+    document.body.appendChild(input);
+    return input;
+"""
+
+
 class BingSelenium:
     def __init__(
         self,
@@ -75,20 +108,31 @@ class BingSelenium:
             )
             time.sleep(self.wait_between_scroll)
 
-    def search_similar_images(self, template_image_url: str, max_images: int = -1):
+    def search_similar_images(self, url_or_path: str, max_images: int = -1):
         done = set()
         i = 0
-        logger.info(f"Searching similar to {template_image_url=}")
+        is_url = _is_url(url_or_path)
+        logger.info(f"Searching similar to {'URL' if is_url else 'path'} {url_or_path}")
         self.driver.get("https://www.bing.com/images")
         self.configure_safe_search()
         # time.sleep(self.wait_first_load)
         button = self.driver.find_element(By.ID, "sb_sbi")
         ActionChains(self.driver).move_to_element(button).click(button).perform()
-        text_input = self.driver.find_element(By.ID, "sb_pastepn")
-        pyperclip.copy(template_image_url)
-        ActionChains(self.driver).move_to_element(text_input).click(
-            text_input
-        ).key_down(Keys.CONTROL).send_keys("v").key_up(Keys.CONTROL).perform()
+
+        if is_url:
+            text_input = self.driver.find_element(By.ID, "sb_pastepn")
+            pyperclip.copy(url_or_path)
+            ActionChains(self.driver).move_to_element(text_input).click(
+                text_input
+            ).key_down(Keys.CONTROL).send_keys("v").key_up(Keys.CONTROL).perform()
+        else:
+            # https://stackoverflow.com/a/53108153
+            drop_target = self.driver.find_element(By.ID, "sb_dropzone")
+            file_input = drop_target.parent.execute_script(
+                _JS_DROP_FILE, drop_target, 0, 0
+            )
+            file_input.send_keys(url_or_path)
+
         time.sleep(self.wait_first_load)
         while True:
             i += 1
@@ -104,7 +148,9 @@ class BingSelenium:
                             done.add(url)
                             added += 1
                             yield url
-                            ActionChains(self.driver).scroll_to_element(element).perform()
+                            ActionChains(self.driver).scroll_to_element(
+                                element
+                            ).perform()
                             time.sleep(0.1)
                     except json.JSONDecodeError:
                         logger.debug(f"json.JSONDecodeError")
@@ -117,7 +163,6 @@ class BingSelenium:
             if max_images > 0 and len(done) >= max_images:
                 break
             time.sleep(self.wait_between_scroll)
-            
 
     def configure_safe_search(self) -> None:
         if not self.safe_search:
