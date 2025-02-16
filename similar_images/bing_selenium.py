@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import json
 import logging
 import time
@@ -11,11 +13,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
+from similar_images.utils import _is_url
+
 logger = logging.getLogger()
-
-
-def _is_url(s: str) -> bool:
-    return s.startswith("http://") or s.startswith("https://")
 
 
 _JS_DROP_FILE = """
@@ -71,15 +71,17 @@ class BingSelenium:
         )
         self.safe_search = safe_search if safe_search is not None else False
 
-    def search_images(self, query: str, max_images: int = -1):
+    async def search_images(self, query: str, max_images: int = -1):
         done = set()
         i = 0
-        self.driver.get("https://www.bing.com")
+        await asyncio.to_thread(
+            functools.partial(self.driver.get, "https://www.bing.com")
+        )
         self.configure_safe_search()
         url = f"https://www.bing.com/images/search?q={quote_plus(query)}"
         logger.info(f"Searching {url=}")
-        self.driver.get(url)
-        time.sleep(self.wait_first_load)  # wait for images to load
+        await asyncio.to_thread(functools.partial(self.driver.get, url))
+        await asyncio.sleep(self.wait_first_load)  # wait for images to load
         while True:
             i += 1
             added = 0
@@ -103,19 +105,24 @@ class BingSelenium:
                 break
             if max_images > 0 and len(done) >= max_images:
                 break
-            self.driver.execute_script(
-                "window.scrollTo(0, document.body.scrollHeight);"
+            await asyncio.to_thread(
+                functools.partial(
+                    self.driver.execute_script,
+                    "window.scrollTo(0, document.body.scrollHeight);",
+                )
             )
-            time.sleep(self.wait_between_scroll)
+            await asyncio.sleep(self.wait_between_scroll)
 
-    def search_similar_images(self, url_or_path: str, max_images: int = -1):
+    async def search_similar_images(self, url_or_path: str, max_images: int = -1):
         done = set()
         i = 0
         is_url = _is_url(url_or_path)
         logger.info(f"Searching similar to {'URL' if is_url else 'path'} {url_or_path}")
-        self.driver.get("https://www.bing.com/images")
+        await asyncio.to_thread(
+            functools.partial(self.driver.get, "https://www.bing.com/images")
+        )
         self.configure_safe_search()
-        # time.sleep(self.wait_first_load)
+
         button = self.driver.find_element(By.ID, "sb_sbi")
         ActionChains(self.driver).move_to_element(button).click(button).perform()
 
@@ -133,7 +140,7 @@ class BingSelenium:
             )
             file_input.send_keys(url_or_path)
 
-        time.sleep(self.wait_first_load)
+        await asyncio.sleep(self.wait_first_load)
         while True:
             i += 1
             added = 0
@@ -151,7 +158,7 @@ class BingSelenium:
                             ActionChains(self.driver).scroll_to_element(
                                 element
                             ).perform()
-                            time.sleep(0.1)
+                            await asyncio.sleep(0.1)
                     except json.JSONDecodeError:
                         logger.debug(f"json.JSONDecodeError")
                         pass
@@ -162,7 +169,7 @@ class BingSelenium:
                 break
             if max_images > 0 and len(done) >= max_images:
                 break
-            time.sleep(self.wait_between_scroll)
+            await asyncio.sleep(self.wait_between_scroll)
 
     def configure_safe_search(self) -> None:
         if not self.safe_search:

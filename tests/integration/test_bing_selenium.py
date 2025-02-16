@@ -1,17 +1,8 @@
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from similar_images.bing_selenium import BingSelenium
-
-
-@pytest.fixture
-def home_tmp_dir():
-    d = tempfile.mkdtemp(dir=os.environ["HOME"])
-    yield d
-    shutil.rmtree(d)
 
 
 @pytest.fixture
@@ -28,11 +19,17 @@ def visual_browser(home_tmp_dir):
     ret.done()
 
 
-def test_bing_search_images(headless_browser):
+@pytest.mark.asyncio
+async def test_bing_search_images(headless_browser):
     # GIVEN
     query = "dog"
+    n = 10
     # WHEN
-    links = list(headless_browser.search_images(query, max_images=10))
+    links = []
+    async for link in headless_browser.search_images(query, n):
+        links.append(link)
+        if len(links) >= n:
+            break
     # THEN
     assert len(links) > 0
     assert all(
@@ -40,11 +37,17 @@ def test_bing_search_images(headless_browser):
     )
 
 
-def test_bing_search_similar_images_path(visual_browser):
+@pytest.mark.asyncio
+async def test_bing_search_similar_images_path(visual_browser):
     # GIVEN
     path = os.environ["TEST_BING_SEARCH_SIMILAR_IMAGES_PATH"]
+    n = 10
     # WHEN
-    links = list(visual_browser.search_similar_images(path, max_images=10))
+    links = []
+    async for link in visual_browser.search_similar_images(path, n):
+        links.append(link)
+        if len(links) >= n:
+            break
     # THEN
     assert len(links) > 0
     assert all(
@@ -52,12 +55,17 @@ def test_bing_search_similar_images_path(visual_browser):
     )
 
 
-def test_bing_search_similar_images_url(visual_browser):
+@pytest.mark.asyncio
+async def test_bing_search_similar_images_url(visual_browser):
     # GIVEN
     url = os.environ["TEST_BING_SEARCH_SIMILAR_IMAGES_URL"]
+    n = 10
     # WHEN
-    links = list(visual_browser.search_similar_images(url, max_images=10))
-    # THEN
+    links = []
+    async for link in visual_browser.search_similar_images(url, n):
+        links.append(link)
+        if len(links) >= n:
+            break  # THEN
     assert len(links) > 0
     assert all(
         link.startswith("https://") or link.startswith("http://") for link in links
