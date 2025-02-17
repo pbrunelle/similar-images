@@ -16,6 +16,9 @@ class ImageFilter(Filter):
     def stat_name(self) -> str:
         return "small"
 
+    def allow_debug_rejected(self) -> bool:
+        return False
+
     async def filter(self, url: str, img: Image, **kwargs) -> FilterResult:
         size = sorted(img.size)
         area = size[0] * size[1]

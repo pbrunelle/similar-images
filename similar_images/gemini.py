@@ -77,7 +77,7 @@ class Gemini:
     async def do_chat(
         self, query: str, image_paths: list[str], image_contents: list[bytes]
     ) -> Decision:
-        parts=[]
+        parts = []
         parts.append({"text": query})
         for image_path in image_paths:
             with open(image_path, "rb") as f:
@@ -98,7 +98,7 @@ class Gemini:
                 }
             }
             parts.append(d)
-        
+
         safety = [
             {
                 "category": cat,

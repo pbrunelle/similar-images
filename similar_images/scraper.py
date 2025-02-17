@@ -6,6 +6,7 @@ import io
 import logging
 import os
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 import exrex
@@ -16,9 +17,20 @@ from PIL import Image
 from similar_images.crappy_db import CrappyDB
 from similar_images.filters.filter import Filter
 from similar_images.types import Result
-from similar_images.utils import _is_url
+from similar_images.utils import get_urls_or_files
 
 logger = logging.getLogger()
+
+
+def _empty_stats(stage2filters: dict[str, list[Filter]]) -> dict[str, int]:
+    ret: dict[str, int] = defaultdict(int)
+    ret["links"] = 0
+    for stage, filters in stage2filters.items():
+        for filter in filters:
+            ret[filter.stat_name()] = 0
+    ret["err"] = 0
+    ret["new"] = 0
+    return ret
 
 
 def _add_stats(stats: dict[str, int], other_stats: dict[str, int]):
@@ -26,48 +38,17 @@ def _add_stats(stats: dict[str, int], other_stats: dict[str, int]):
         stats[k] += v
 
 
-def _print_stats(stats: dict[str, int]):
-    links = stats.get("links", 0)
-    dup_url = stats.get("dup_url", 0)
-    dup_hash = stats.get("dup_hash", 0)
-    dup_near = stats.get("dup_near", 0)
-    small = stats.get("small", 0)
-    llm = stats.get("llm", 0)
-    err = stats.get("err", 0)
-    new = stats.get("new", 0)
-    return f"links={links} | dup:url={dup_url} dup:hash={dup_hash} dup:near={dup_near} small={small} llm={llm} err={err} | new={new}"
-
-
-def _query_generator(queries: str):
-    for query in exrex.generate(queries):
-        query = query.strip()
-        yield query
-
-
-def _get_url_from_db(path: str, db: CrappyDB | None) -> str | None:
-    if not db:
-        return None
-    _, file = os.path.split(path)
-    name, _ = os.path.splitext(file)
-    for r in db.scan():
-        if r.hashstr.startswith(name):
-            return r.url
-    return None
-
-
-def _urls_or_files(queries: list[str], db: CrappyDB | None):
-    for q in queries:
-        if _is_url(q):
-            yield q
-        elif os.path.isdir(q):
-            for file in os.listdir(q):
-                subpath = os.path.join(q, file)
-                if os.path.isfile(subpath):
-                    url = _get_url_from_db(subpath, db)
-                    yield url if url else subpath
-        else:
-            url = _get_url_from_db(q, db)
-            yield url if url else q
+def _print_stats(stats: dict[str, int]) -> str:
+    # "links=100 | dup:url=50 dup:hash=1 dup:near=9 small=20 llm=5 err=3 | new=12"
+    parts = []
+    parts.append(f"links:{stats.get('links', 0)}")
+    parts.append("|")
+    for stat_name, count in stats.items():
+        if stat_name not in ("links", "new"):
+            parts.append(f"{stat_name}:{count}")
+    parts.append("|")
+    parts.append(f"new:{stats.get('new', 0)}")
+    return " ".join(parts)
 
 
 def _update_stats(
@@ -81,13 +62,54 @@ def _update_stats(
     q_stats[code] += 1
 
 
+def _query_generator(queries: str):
+    for query in exrex.generate(queries):
+        query = query.strip()
+        yield query
+
+
+def _save_file(
+    url: str,
+    contents: bytes,
+    hashstr: str,
+    img: Image,
+    outdir: str,
+    code: str | None = None,
+) -> str:
+    filename = hashstr[:8]
+    extension = img.format.lower()
+    path = Path(outdir) if not code else Path(outdir) / code
+    path.mkdir(parents=True, exist_ok=True)
+    image_path = path / f"{filename}.{extension}"
+    with open(image_path, "wb") as f:
+        f.write(contents)
+    logger.debug(f"{'Downloaded' if not code else 'Dumped'} {url} to {image_path}")
+    return str(image_path)
+
+
 async def _apply_filters(
-    *args, filters: list[Filter], **kwargs
+    *args, filters: list[Filter], debug_outdir: str | None = None, **kwargs
 ) -> tuple[bool, str | None]:
     for filter in filters:
         filter_result = await filter.filter(**kwargs)
         if not filter_result.keep:
             logger.debug(filter_result.explanation)
+            if (
+                filter.allow_debug_rejected()
+                and debug_outdir
+                and "url" in kwargs
+                and "contents" in kwargs
+                and "hashstr" in kwargs
+                and "img" in kwargs
+            ):
+                _save_file(
+                    kwargs["url"],
+                    kwargs["contents"],
+                    kwargs["hashstr"],
+                    kwargs["img"],
+                    debug_outdir,
+                    code=filter.stat_name(),
+                )
             return (False, filter.stat_name())
     return (True, None)
 
@@ -99,16 +121,16 @@ class Scraper:
         client: httpx.AsyncClient | None = None,
         db: CrappyDB | None = None,
         filters: list[Filter] | None = None,
+        debug_outdir: str | None = None,
     ):
         self.browser = browser
-        self.client = (
-            client if client else httpx.AsyncClient(follow_redirects=True, timeout=30)
-        )
+        self.client = client or httpx.AsyncClient(follow_redirects=True, timeout=30)
         self.db = db
-        filters = filters if filters else []
+        self.debug_outdir = debug_outdir
         self.stage2filters: dict[str, list[Filter]] = defaultdict(list)
-        for filter in filters:
-            self.stage2filters[filter.stage()].append(filter)
+        if filters:
+            for filter in filters:
+                self.stage2filters[filter.stage()].append(filter)
 
     def scrape(
         self,
@@ -129,7 +151,7 @@ class Scraper:
         if similar_images:
             return asyncio.run(
                 self.scrape_async(
-                    _urls_or_files(similar_images, self.db),
+                    get_urls_or_files(similar_images, self.db),
                     outdir,
                     count,
                     self.browser.search_similar_images,
@@ -145,11 +167,11 @@ class Scraper:
         search_fn,
     ) -> set[str]:
         all_links: set[str] = set()
-        run_stats: dict[str, int] = defaultdict(int)
+        run_stats = _empty_stats(self.stage2filters)
         q = 0
         for query in queries:
             q += 1
-            q_stats: dict[str, int] = defaultdict(int)
+            q_stats = _empty_stats(self.stage2filters)
             downloaded_links: set[str] = set()
             async with asyncio.TaskGroup() as tg:
                 async for link in search_fn(query, count):
@@ -187,6 +209,7 @@ class Scraper:
             response.raise_for_status()
             contents = response.content
             if not contents:
+                logger.debug(f"Failed to fetch {link}: no contents")
                 return (None, "err")
 
             # Get image "identity"
@@ -200,8 +223,10 @@ class Scraper:
                 url=link,
                 query=query,
                 contents=contents,
+                hashstr=hashstr,
                 img=img,
                 filters=self.stage2filters["contents"],
+                debug_outdir=self.debug_outdir,
             )
             if not keep:
                 return (None, code)
@@ -218,9 +243,11 @@ class Scraper:
                 url=link,
                 query=query,
                 contents=contents,
-                image=img,
+                hashstr=hashstr,
+                img=img,
                 hashes=hashes,
                 filters=self.stage2filters["hashes"],
+                debug_outdir=self.debug_outdir,
             )
             if not keep:
                 return (None, code)
@@ -230,9 +257,11 @@ class Scraper:
                 url=link,
                 query=query,
                 contents=contents,
-                image=img,
+                hashstr=hashstr,
+                img=img,
                 hashes=hashes,
                 filters=self.stage2filters["expensive"],
+                debug_outdir=self.debug_outdir,
             )
             if not keep:
                 if self.db:
@@ -247,18 +276,9 @@ class Scraper:
                             hashes=hashes,
                         )
                     )
-                return (
-                    None,
-                    code,
-                )
+                return (None, code)
 
-            # Save file
-            filename = hashstr[:8]
-            extension = img.format.lower()
-            image_path = f"{outdir}/{filename}.{extension}"
-            with open(image_path, "wb") as f:
-                f.write(contents)
-            logger.debug(f"Downloaded {link} to {image_path}")
+            image_path = _save_file(link, contents, hashstr, img, outdir)
 
             # Update DB
             if self.db:

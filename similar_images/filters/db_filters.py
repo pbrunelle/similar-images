@@ -27,7 +27,10 @@ class DbUrlFilter(DbFilter):
         return "url"
 
     def stat_name(self) -> str:
-        return "dup_url"
+        return "dup:url"
+
+    def allow_debug_rejected(self) -> bool:
+        return False
 
     async def filter(self, url: str, **kwargs) -> FilterResult:
         record = self._db.get("url", url)
@@ -39,7 +42,10 @@ class DbExactDupFilter(DbFilter):
         return "contents"
 
     def stat_name(self) -> str:
-        return "dup_hashstr"
+        return "dup:hash"
+
+    def allow_debug_rejected(self) -> bool:
+        return False
 
     async def filter(self, url: str, contents: bytes, **kwargs) -> FilterResult:
         # https://stackoverflow.com/a/64994148
@@ -72,7 +78,7 @@ class DbNearDupFilter(DbFilter):
         return "hashes"
 
     def stat_name(self) -> str:
-        return "dup_near"
+        return "dup:near"
 
     async def filter(self, url: str, hashes: dict[str, str], **kwargs) -> FilterResult:
         record = self._find_near_duplicate(hashes)

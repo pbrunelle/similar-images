@@ -4,7 +4,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
 
 import fire
 
@@ -28,18 +27,19 @@ def get_filters(config: CommonConfiguration, db: CrappyDB) -> list[Filter]:
     if not config.filters:
         return []
     ret = []
-    for k, v in config.filters.items():
-        match k:
-            case "DbUrlFilter":
-                ret.append(DbUrlFilter(db))
-            case "DbExactDupFilter":
-                ret.append(DbExactDupFilter(db))
-            case "DbNearDupFilter":
-                ret.append(DbNearDupFilter(db))
-            case "ImageFilter":
-                ret.append(ImageFilter(**v))
-            case "GeminiFilter":
-                ret.append(GeminiFilter(**v))
+    for filter_group in config.filters:
+        for filter_name, filter_config in filter_group.items():
+            match filter_name:
+                case "DbUrlFilter":
+                    ret.append(DbUrlFilter(db))
+                case "DbExactDupFilter":
+                    ret.append(DbExactDupFilter(db))
+                case "DbNearDupFilter":
+                    ret.append(DbNearDupFilter(db))
+                case "ImageFilter":
+                    ret.append(ImageFilter(**filter_config))
+                case "GeminiFilter":
+                    ret.append(GeminiFilter(**filter_config))
     return ret
 
 
@@ -81,10 +81,11 @@ def scrape(configfile: str) -> None:
             headless=run.headless,
             user_data_dir=home_tmp_dir,
         )
-        scraper = Scraper(browser=browser, db=db, filters=filters)
+        scraper = Scraper(
+            browser=browser, db=db, filters=filters, debug_outdir=run.debug_outdir
+        )
         now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         outdir = f"{run.outdir}/{now_str}"
-        Path(outdir).mkdir(parents=True, exist_ok=True)
         scraper.scrape(
             queries=run.queries,
             outdir=outdir,

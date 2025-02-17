@@ -32,7 +32,6 @@ def test_scraper_query_search(home_tmp_dir, browser):
     ]
     scraper = Scraper(browser=browser, db=db, filters=filters)
     outdir = f"{home_tmp_dir}/dl"
-    Path(outdir).mkdir(parents=True, exist_ok=True)
     # WHEN
     filenames = scraper.scrape(
         queries="cats|dogs",
@@ -55,7 +54,6 @@ def test_scraper_similar_search(home_tmp_dir, browser):
     ]
     scraper = Scraper(browser=browser, db=db, filters=filters)
     outdir = f"{home_tmp_dir}/dl"
-    Path(outdir).mkdir(parents=True, exist_ok=True)
     # WHEN
     filenames = scraper.scrape(
         queries=None,

@@ -13,7 +13,8 @@ class CommonConfiguration(BaseModel):
     wait_first_load: float | None = None
     headless: bool | None = None
     safe_search: bool | None = None
-    filters: dict[str, Any] | None = None
+    filters: list[dict[str, Any]] | None = None
+    debug_outdir: str | None = None
 
 
 class RunConfiguration(CommonConfiguration):
@@ -30,6 +31,7 @@ class RunConfiguration(CommonConfiguration):
             "headless",
             "safe_search",
             "filters",
+            "debug_outdir",
         ]
         for field in fields_to_resolve:
             if getattr(self, field) is None:

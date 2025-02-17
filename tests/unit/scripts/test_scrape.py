@@ -7,16 +7,18 @@ from similar_images.types import CommonConfiguration, ScrapeConfiguration
 def test_scrape_filters():
     # GIVEN
     common_config = CommonConfiguration(
-        filters={
-            "DbUrlFilter": {},
-            "DbExactDupFilter": {},
-            "DbNearDupFilter": {},
-            "ImageFilter": {
-                "min_size": [600, 800],
-                "min_area": 550_000,
+        filters=[
+            {"DbUrlFilter": {}},
+            {"DbExactDupFilter": {}},
+            {"DbNearDupFilter": {}},
+            {
+                "ImageFilter": {
+                    "min_size": [600, 800],
+                    "min_area": 550_000,
+                }
             },
-            "UnknownFilter": {},
-        }
+            {"UnknownFilter": {}},
+        ]
     )
     # WHEN
     filters = get_filters(common_config, db=Mock())

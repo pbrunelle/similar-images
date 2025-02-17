@@ -1,16 +1,16 @@
 import asyncio
 import json
 import logging
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import fire
 import httpx
 
 from similar_images.gemini import Decision, Gemini
-from similar_images.utils import get_files
-from pathlib import Path
-import shutil
+from similar_images.utils import get_urls_or_files
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +102,8 @@ async def evaluate(
     gemini = Gemini(
         httpx_client=client, model=model, max_output_tokens=max_output_tokens
     )
-    positive_files = get_files(positive_paths.split(","))
-    negative_files = get_files(negative_paths.split(","))
+    positive_files = get_urls_or_files(positive_paths.split(","))
+    negative_files = get_urls_or_files(negative_paths.split(","))
     positive_decisions = await run_dataset(gemini, query, positive_files, concurrency)
     negative_decisions = await run_dataset(gemini, query, negative_files, concurrency)
     d = evaluate_dataset(

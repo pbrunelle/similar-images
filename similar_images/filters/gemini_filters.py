@@ -1,7 +1,7 @@
 import httpx
 
 from similar_images.filters.filter import Filter, FilterResult, FilterStage
-from similar_images.gemini import Decision, Gemini
+from similar_images.gemini import Gemini
 
 
 class GeminiFilter(Filter):
@@ -12,11 +12,14 @@ class GeminiFilter(Filter):
         keep_responses: list[str],
         model: str,
         timeout: float = 10,
+        filter_name: str | None = None,
         **kwargs,
     ):
         self._query = query
         self._keep_responses = keep_responses
+        self._model = model
         self._httpx_client = httpx.AsyncClient(timeout=timeout)
+        self._filter_name = filter_name or "llm"
         self._gemini = Gemini(
             *args,
             httpx_client=self._httpx_client,
@@ -28,12 +31,14 @@ class GeminiFilter(Filter):
         return "expensive"
 
     def stat_name(self) -> str:
-        return "llm"
+        return self._filter_name
 
     async def filter(self, url: str, contents: bytes, **kwargs) -> FilterResult:
         decision = await self._gemini.chat(query=self._query, image_contents=[contents])
         if decision.answer() in self._keep_responses:
             return FilterResult(keep=True)
         else:
-            explanation = f"Rejected by Gemini: {url}: {decision}"
+            explanation = (
+                f"Rejected by {self._model}/{self._filter_name}: {url}: {decision}"
+            )
             return FilterResult(keep=False, explanation=explanation)

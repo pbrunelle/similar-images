@@ -18,5 +18,8 @@ class Filter:
     def stat_name(self) -> str:
         raise NotImplementedError()
 
+    def allow_debug_rejected(self) -> bool:
+        return True
+
     async def filter(self, *args, **kwargs) -> FilterResult:
         raise NotImplementedError()

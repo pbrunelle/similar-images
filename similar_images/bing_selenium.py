@@ -13,7 +13,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
-from similar_images.utils import _is_url
+from similar_images.utils import is_url
 
 logger = logging.getLogger()
 
@@ -116,8 +116,9 @@ class BingSelenium:
     async def search_similar_images(self, url_or_path: str, max_images: int = -1):
         done = set()
         i = 0
-        is_url = _is_url(url_or_path)
-        logger.info(f"Searching similar to {'URL' if is_url else 'path'} {url_or_path}")
+        logger.info(
+            f"Searching similar to {'URL' if is_url(url_or_path) else 'path'} {url_or_path}"
+        )
         await asyncio.to_thread(
             functools.partial(self.driver.get, "https://www.bing.com/images")
         )
@@ -126,7 +127,7 @@ class BingSelenium:
         button = self.driver.find_element(By.ID, "sb_sbi")
         ActionChains(self.driver).move_to_element(button).click(button).perform()
 
-        if is_url:
+        if is_url(url_or_path):
             text_input = self.driver.find_element(By.ID, "sb_pastepn")
             pyperclip.copy(url_or_path)
             ActionChains(self.driver).move_to_element(text_input).click(
