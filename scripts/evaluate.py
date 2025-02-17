@@ -9,6 +9,8 @@ import httpx
 
 from similar_images.gemini import Decision, Gemini
 from similar_images.utils import get_files
+from pathlib import Path
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -39,19 +41,29 @@ def evaluate_dataset(
     positive_decisions: list[Decision],
     negative_decisions: list[Decision],
     positive_answers: list[str],
+    outdir: str | None,
 ) -> dict[str, Any]:
     # Return number of True and False answers
+    if outdir:
+        fp_dir = f"{outdir}/fp"
+        fn_dir = f"{outdir}/fn"
+        Path(fp_dir).mkdir(parents=True, exist_ok=True)
+        Path(fn_dir).mkdir(parents=True, exist_ok=True)
     TP, FN, FP, TN = 0, 0, 0, 0
     for decision in positive_decisions:
         if decision.answer() in positive_answers:
             TP += 1
         else:
             FN += 1
-            print(f"False negative: {decision}")
+            logger.info(f"False negative: {decision}")
+            if outdir:
+                shutil.copy2(decision.image_path, fn_dir)
     for decision in negative_decisions:
         if decision.answer() in positive_answers:
             FP += 1
-            print(f"False positive: {decision}")
+            logger.info(f"False positive: {decision}")
+            if outdir:
+                shutil.copy2(decision.image_path, fp_dir)
         else:
             TN += 1
     pr, rec = get_precision_recall(TP, FP, TN, FN)
@@ -83,6 +95,7 @@ async def evaluate(
     positive_answers: str = "yes",
     max_output_tokens: int = 10,
     concurrency: int = 1,
+    outdir: str | None = None,
 ):
     logging.basicConfig(level=logging.DEBUG)
     client = httpx.AsyncClient(follow_redirects=False, timeout=30)
@@ -97,6 +110,7 @@ async def evaluate(
         positive_decisions,
         negative_decisions,
         positive_answers.split(),
+        outdir,
     )
     d["model"] = model
     d["query"] = query
