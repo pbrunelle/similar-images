@@ -156,12 +156,8 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
     assert mock_logger.info.call_args_list == expected_info_calls
     expected_debug_calls = [
         call("Too small: http://images.com/0.png: (10, 10)"),
-        call(f"Dumped http://images.com/0.png to {tmp_path}/debug/small/0814f352.png"),
         call(f"Downloaded http://images.com/1.png to {tmp_path}/out/c53d298c.png"),
         call(f"Already downloaded (dup:hash): http://images.com/2.png: ({match})"),
-        call(
-            f"Dumped http://images.com/2.png to {tmp_path}/debug/dup:hash/c53d298c.png"
-        ),
         call(f"Already downloaded (dup:url): http://images.com/1.png: ({match})"),
         call(
             f"Already downloaded (dup:near): http://google.com/images/img0.jpeg: ({match})"
