@@ -27,13 +27,14 @@ class Decision(BaseModel):
         if (idx := d.rfind("```")) != -1:
             d = d[:idx]
         d = d.strip().removesuffix(".")
-        if d.isalpha() or d == "PROHIBITED_CONTENT":
-            return d
-        answer = json.loads(d)
-        for key in ("all", "overall", "all_satisfied", "all_criteria_satisfied"):
-            if key in answer:
-                return answer[key].strip()
-        raise Exception(f"Failed to get answer on: {self}")
+        try:
+            answer = json.loads(d)
+            for key in ("all", "overall", "all_satisfied", "all_criteria_satisfied"):
+                if key in answer:
+                    return answer[key].strip()
+        except json.JSONDecodeError as e:
+            pass
+        return d
 
 
 class Gemini:
@@ -76,7 +77,8 @@ class Gemini:
     async def do_chat(
         self, query: str, image_paths: list[str], image_contents: list[bytes]
     ) -> Decision:
-        parts = [{"text": query}]
+        parts=[]
+        parts.append({"text": query})
         for image_path in image_paths:
             with open(image_path, "rb") as f:
                 extension = image_path.rsplit(".")[-1]
@@ -96,8 +98,29 @@ class Gemini:
                 }
             }
             parts.append(d)
+        
+        safety = [
+            {
+                "category": cat,
+                "threshold": "BLOCK_NONE",
+            }
+            for cat in [
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "HARM_CATEGORY_CIVIC_INTEGRITY",
+            ]
+        ]
         data = {
-            "generationConfig": {"max_output_tokens": self._max_output_tokens},
+            "generationConfig": {
+                "max_output_tokens": self._max_output_tokens,
+                # "temperature": 1.0,
+                # "top_p": 0.95,
+                # "top_k": 40,
+                # "response_mime_type": "text/plain",
+            },
+            "safetySettings": safety,
             "contents": {"parts": parts},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={self._api_key}"
