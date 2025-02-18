@@ -117,6 +117,7 @@ async def evaluate(
     d["time"] = str(datetime.now())
     d["positive_paths"] = positive_paths
     d["negative_paths"] = negative_paths
+    d["positive_answers"] = positive_answers
     print(json.dumps(d))
 
 

@@ -20,6 +20,7 @@ class CommonConfiguration(BaseModel):
 class RunConfiguration(CommonConfiguration):
     queries: str | None = None
     similar_images: list[str] | None = None
+    evaluate_images: list[str] | None = None
 
     def resolve(self, common: CommonConfiguration) -> None:
         fields_to_resolve = [

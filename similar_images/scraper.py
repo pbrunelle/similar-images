@@ -73,7 +73,7 @@ def _save_file(
     contents: bytes,
     hashstr: str,
     img: Image,
-    outdir: str,
+    outdir: str | None,
     code: str | None = None,
 ) -> str:
     filename = hashstr[:8]
@@ -95,8 +95,8 @@ async def _apply_filters(
         if not filter_result.keep:
             logger.debug(filter_result.explanation)
             if (
-                filter.allow_debug_rejected()
-                and debug_outdir
+                debug_outdir
+                and filter.allow_debug_rejected()
                 and "url" in kwargs
                 and "contents" in kwargs
                 and "hashstr" in kwargs
@@ -112,6 +112,10 @@ async def _apply_filters(
                 )
             return (False, filter.stat_name())
     return (True, None)
+
+
+async def _noop(query: str, count: int):
+    yield query
 
 
 class Scraper:
@@ -136,8 +140,9 @@ class Scraper:
         self,
         queries: str | None,
         outdir: str,
-        count: int,
+        count: int | None = None,
         similar_images: list[str] | None = None,
+        evaluate_images: list[str] | None = None,
     ) -> set[str]:
         if queries:
             return asyncio.run(
@@ -157,13 +162,22 @@ class Scraper:
                     self.browser.search_similar_images,
                 )
             )
+        if evaluate_images:
+            return asyncio.run(
+                self.scrape_async(
+                    get_urls_or_files(evaluate_images, None),
+                    outdir,
+                    count,
+                    _noop,
+                )
+            )
         return set()
 
     async def scrape_async(
         self,
         queries,
         outdir: str,
-        count: int,
+        count: int | None,
         search_fn,
     ) -> set[str]:
         all_links: set[str] = set()
@@ -189,7 +203,7 @@ class Scraper:
             logger.info(f"Done {query=} | {_print_stats(q_stats)}")
             _add_stats(run_stats, q_stats)
             logger.info(f"Cumulative n={q} | {_print_stats(run_stats)}")
-            if len(all_links) >= count:
+            if count is not None and len(all_links) >= count:
                 break  # collected enough images
         return all_links
 
@@ -278,7 +292,9 @@ class Scraper:
                     )
                 return (None, code)
 
-            image_path = _save_file(link, contents, hashstr, img, outdir)
+            image_path = None
+            if outdir:
+                image_path = _save_file(link, contents, hashstr, img, outdir)
 
             # Update DB
             if self.db:

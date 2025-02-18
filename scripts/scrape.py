@@ -3,9 +3,9 @@ import logging
 import os
 import shutil
 import tempfile
-from pathlib import Path
 
 import fire
+import httpx
 
 from similar_images.bing_selenium import BingSelenium
 from similar_images.crappy_db import CrappyDB
@@ -23,7 +23,17 @@ from similar_images.types import CommonConfiguration, ScrapeConfiguration
 logger = logging.getLogger()
 
 
-def get_filters(config: CommonConfiguration, db: CrappyDB) -> list[Filter]:
+class FakeClient:
+    async def get(self, url: str, *args, **kwargs):
+        with open(url, "rb") as f:
+            return httpx.Response(
+                status_code=200,
+                content=f.read(),
+                request=httpx.Request(method="GET", url=f"file://{url}"),
+            )
+
+
+def get_filters(config: CommonConfiguration, db: CrappyDB | None) -> list[Filter]:
     if not config.filters:
         return []
     ret = []
@@ -31,10 +41,13 @@ def get_filters(config: CommonConfiguration, db: CrappyDB) -> list[Filter]:
         for filter_name, filter_config in filter_group.items():
             match filter_name:
                 case "DbUrlFilter":
+                    assert db
                     ret.append(DbUrlFilter(db))
                 case "DbExactDupFilter":
+                    assert db
                     ret.append(DbExactDupFilter(db))
                 case "DbNearDupFilter":
+                    assert db
                     ret.append(DbNearDupFilter(db))
                 case "ImageFilter":
                     ret.append(ImageFilter(**filter_config))
@@ -70,7 +83,7 @@ def scrape(configfile: str) -> None:
     for run in scrape_config.runs:
         run.resolve(scrape_config.common)
         logger.info(f"Scraping {run=}")
-        db = CrappyDB(run.database)
+        db = CrappyDB(run.database) if run.database else None
         filters: list[Filter] = get_filters(run, db)
         logger.info(f"Using filters: {filters}")
         home_tmp_dir = tempfile.mkdtemp(dir=os.environ["HOME"])
@@ -81,16 +94,24 @@ def scrape(configfile: str) -> None:
             headless=run.headless,
             user_data_dir=home_tmp_dir,
         )
+        client = FakeClient() if run.evaluate_images else None
         scraper = Scraper(
-            browser=browser, db=db, filters=filters, debug_outdir=run.debug_outdir
+            browser=browser,
+            client=client,
+            db=db,
+            filters=filters,
+            debug_outdir=run.debug_outdir,
         )
-        now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        outdir = f"{run.outdir}/{now_str}"
+        outdir: str | None = None
+        if run.outdir:
+            now_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            outdir = f"{run.outdir}/{now_str}"
         scraper.scrape(
             queries=run.queries,
             outdir=outdir,
             count=run.count,
             similar_images=run.similar_images,
+            evaluate_images=run.evaluate_images,
         )
         browser.done()
         shutil.rmtree(home_tmp_dir)

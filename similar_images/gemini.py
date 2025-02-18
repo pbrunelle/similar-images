@@ -29,7 +29,13 @@ class Decision(BaseModel):
         d = d.strip().removesuffix(".")
         try:
             answer = json.loads(d)
-            for key in ("all", "overall", "all_satisfied", "all_criteria_satisfied"):
+            for key in (
+                "answer",
+                "all",
+                "overall",
+                "all_satisfied",
+                "all_criteria_satisfied",
+            ):
                 if key in answer:
                     return answer[key].strip()
         except json.JSONDecodeError as e:
@@ -99,28 +105,10 @@ class Gemini:
             }
             parts.append(d)
 
-        safety = [
-            {
-                "category": cat,
-                "threshold": "BLOCK_NONE",
-            }
-            for cat in [
-                "HARM_CATEGORY_HARASSMENT",
-                "HARM_CATEGORY_HATE_SPEECH",
-                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "HARM_CATEGORY_CIVIC_INTEGRITY",
-            ]
-        ]
         data = {
             "generationConfig": {
                 "max_output_tokens": self._max_output_tokens,
-                # "temperature": 1.0,
-                # "top_p": 0.95,
-                # "top_k": 40,
-                # "response_mime_type": "text/plain",
             },
-            "safetySettings": safety,
             "contents": {"parts": parts},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={self._api_key}"
