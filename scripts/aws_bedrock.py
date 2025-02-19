@@ -25,7 +25,7 @@ def bedrock(path: str, query: str, model: str = "amazon.nova-lite-v1:0"):
     ]
     payload = {
         "messages": [{"role": "user", "content": message_content}],
-        "inferenceConfig":{"maxTokens":2000}
+        "inferenceConfig": {"maxTokens": 2000},
     }
     response = bedrock_runtime.invoke_model(
         body=json.dumps(payload),

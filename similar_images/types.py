@@ -5,36 +5,35 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class CommonConfiguration(BaseModel):
-    outdir: str | None = None
-    database: str | None = None
-    count: int | None = None
+class BingSeleniumConfiguration(BaseModel):
     wait_between_scroll: float | None = None
     wait_first_load: float | None = None
     headless: bool | None = None
     safe_search: bool | None = None
+
+
+class CommonConfiguration(BaseModel):
+    outdir: str | None = None
+    database: str | None = None
+    count: int | None = None
     filters: list[dict[str, Any]] | None = None
     debug_outdir: str | None = None
     concurrency: int | None = None
+    bing_selenium: BingSeleniumConfiguration | None = None
 
 
 class RunConfiguration(CommonConfiguration):
-    queries: str | None = None
-    similar_images: list[str] | None = None
-    evaluate_images: list[str] | None = None
+    image_sources: list[dict[str, Any]] | None = None
 
     def resolve(self, common: CommonConfiguration) -> None:
         fields_to_resolve = [
             "outdir",
             "database",
             "count",
-            "wait_between_scroll",
-            "wait_first_load",
-            "headless",
-            "safe_search",
             "filters",
             "debug_outdir",
             "concurrency",
+            "bing_selenium",
         ]
         for field in fields_to_resolve:
             if getattr(self, field) is None:

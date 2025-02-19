@@ -8,15 +8,14 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import exrex
 import httpx
 import imagehash
 from PIL import Image
 
 from similar_images.crappy_db import CrappyDB
 from similar_images.filters.filter import Filter
+from similar_images.image_sources import ImageSource
 from similar_images.types import Result
-from similar_images.utils import get_urls_or_files
 
 logger = logging.getLogger()
 
@@ -59,12 +58,6 @@ def _update_stats(
         downloaded_links.add(link)
     assert code
     q_stats[code] += 1
-
-
-def _query_generator(queries: str):
-    for query in exrex.generate(queries):
-        query = query.strip()
-        yield query
 
 
 def _save_file(
@@ -113,86 +106,44 @@ async def _apply_filters(
     return (True, None)
 
 
-async def _noop(query: str, count: int):
-    yield query
-
-
 class Scraper:
     def __init__(
         self,
-        browser: Any,
+        image_source: ImageSource,
         client: httpx.AsyncClient | None = None,
         db: CrappyDB | None = None,
         filters: list[Filter] | None = None,
+        outdir: str | None = None,
         debug_outdir: str | None = None,
         concurrency: int | None = None,
+        count: int | None = None,
     ):
-        self.browser = browser
-        self.client = client or httpx.AsyncClient(follow_redirects=True, timeout=30)
+        self.image_source = image_source
+        self.client = client or image_source.get_client()
         self.db = db
+        self.outdir = outdir
         self.debug_outdir = debug_outdir
         self.stage2filters: dict[str, list[Filter]] = defaultdict(list)
-        self._semaphore = asyncio.Semaphore(concurrency or 1)
+        self.semaphore = asyncio.Semaphore(concurrency or 1)
+        self.count = count
         if filters:
             for filter in filters:
                 self.stage2filters[filter.stage()].append(filter)
 
-    def scrape(
-        self,
-        queries: str | None,
-        outdir: str,
-        count: int | None = None,
-        similar_images: list[str] | None = None,
-        evaluate_images: list[str] | None = None,
-    ) -> set[str]:
-        if queries:
-            return asyncio.run(
-                self.scrape_async(
-                    _query_generator(queries),
-                    outdir,
-                    count,
-                    self.browser.search_images,
-                )
-            )
-        if similar_images:
-            return asyncio.run(
-                self.scrape_async(
-                    get_urls_or_files(similar_images, None),
-                    outdir,
-                    count,
-                    self.browser.search_similar_images,
-                )
-            )
-        if evaluate_images:
-            return asyncio.run(
-                self.scrape_async(
-                    get_urls_or_files(evaluate_images, None),
-                    outdir,
-                    count,
-                    _noop,
-                )
-            )
-        return set()
+    def sync_scrape(self) -> set[str]:
+        return asyncio.run(self.async_scrape())
 
-    async def scrape_async(
-        self,
-        queries,
-        outdir: str,
-        count: int | None,
-        search_fn,
-    ) -> set[str]:
+    async def async_scrape(self) -> set[str]:
         all_links: set[str] = set()
         run_stats = _empty_stats(self.stage2filters)
         q = 0
-        for query in queries:
+        async for query in self.image_source.batches():
             q += 1
             q_stats = _empty_stats(self.stage2filters)
             downloaded_links: set[str] = set()
             async with asyncio.TaskGroup() as tg:
-                async for link in search_fn(query, count):
-                    task = tg.create_task(
-                        self.process_link(link=link, query=query, outdir=outdir)
-                    )
+                async for link in self.image_source.images(query):
+                    task = tg.create_task(self.process_link(link=link, query=query))
                     task.add_done_callback(
                         functools.partial(
                             _update_stats,
@@ -204,18 +155,17 @@ class Scraper:
             logger.info(f"Done {query=} | {_print_stats(q_stats)}")
             _add_stats(run_stats, q_stats)
             logger.info(f"Cumulative n={q} | {_print_stats(run_stats)}")
-            if count is not None and len(all_links) >= count:
+            if self.count is not None and len(all_links) >= self.count:
                 break  # collected enough images
         return all_links
 
-    async def process_link(
-        self, link: str, query: str, outdir: str
-    ) -> tuple[str | None, str]:
-        async with self._semaphore:
+    async def process_link(self, link: str, query: str) -> tuple[str | None, str]:
+        async with self.semaphore:
             try:
+                filter_data = {"query": query, "url": link}
                 # Filter based on URL
                 keep, code = await _apply_filters(
-                    query=query, url=link, filters=self.stage2filters["url"]
+                    **filter_data, filters=self.stage2filters["url"]
                 )
                 if not keep:
                     return (None, code)
@@ -235,12 +185,15 @@ class Scraper:
                 img = Image.open(io.BytesIO(contents))
 
                 # Filter based on image contents
+                filter_data.update(
+                    {
+                        "contents": contents,
+                        "hashstr": hashstr,
+                        "img": img,
+                    }
+                )
                 keep, code = await _apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    hashstr=hashstr,
-                    img=img,
+                    **filter_data,
                     filters=self.stage2filters["contents"],
                     debug_outdir=self.debug_outdir,
                 )
@@ -255,13 +208,13 @@ class Scraper:
                     "dv": str(imagehash.dhash_vertical(img)),
                     "w": str(imagehash.whash(img)),
                 }
+                filter_data.update(
+                    {
+                        "hashes": hashes,
+                    }
+                )
                 keep, code = await _apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    hashstr=hashstr,
-                    img=img,
-                    hashes=hashes,
+                    **filter_data,
                     filters=self.stage2filters["hashes"],
                     debug_outdir=self.debug_outdir,
                 )
@@ -270,12 +223,7 @@ class Scraper:
 
                 # Run expensive filters (e.g. LLMs)
                 keep, code = await _apply_filters(
-                    url=link,
-                    query=query,
-                    contents=contents,
-                    hashstr=hashstr,
-                    img=img,
-                    hashes=hashes,
+                    **filter_data,
                     filters=self.stage2filters["expensive"],
                     debug_outdir=self.debug_outdir,
                 )
@@ -295,8 +243,8 @@ class Scraper:
                     return (None, code)
 
                 image_path = None
-                if outdir:
-                    image_path = _save_file(link, contents, hashstr, img, outdir)
+                if self.outdir:
+                    image_path = _save_file(link, contents, hashstr, img, self.outdir)
 
                 # Update DB
                 if self.db:

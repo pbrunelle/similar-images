@@ -1,6 +1,7 @@
 import datetime
 import os
 from io import BytesIO
+from typing import AsyncGenerator
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import httpx
@@ -14,6 +15,7 @@ from similar_images.filters.db_filters import (
     DbUrlFilter,
 )
 from similar_images.filters.image_filters import ImageFilter
+from similar_images.image_sources import ImageSource
 from similar_images.scraper import Scraper, _apply_filters
 from similar_images.types import Result
 
@@ -35,21 +37,6 @@ async def test_apply_filters(size, expected_keep, expected_code):
     # THEN
     assert keep == expected_keep
     assert code == expected_code
-
-
-async def search_fn(query: str, max_images: int = -1):
-    match query:
-        case "hello":
-            for i in range(3):
-                yield f"http://images.com/{i}.png"
-        case "world":
-            pass  # no images
-        case "!":
-            yield f"http://images.com/1.png"
-            for i in range(2):
-                yield f"http://google.com/images/img{i}.jpeg"
-        case _:
-            raise Exception(f"search_fn: unexpected query: {query}")
 
 
 async def download(url: str) -> bytes:
@@ -78,6 +65,33 @@ async def download(url: str) -> bytes:
     )
 
 
+class MockImageSource(ImageSource):
+    """Return URLs or paths to images."""
+
+    def get_client(self):
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=download)
+        return mock_client
+
+    async def batches(self):
+        for q in ["hello", "world", "!"]:
+            yield q
+
+    async def images(self, batch: str):
+        match batch:
+            case "hello":
+                for i in range(3):
+                    yield f"http://images.com/{i}.png"
+            case "world":
+                pass  # no images
+            case "!":
+                yield f"http://images.com/1.png"
+                for i in range(2):
+                    yield f"http://google.com/images/img{i}.jpeg"
+            case _:
+                raise Exception(f"MockImageSource.images: unexpected query: {batch}")
+
+
 @patch("similar_images.scraper.datetime")
 @patch("similar_images.scraper.logger")
 @pytest.mark.asyncio
@@ -88,8 +102,6 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
     outdir = tmp_path / "out"
     debug_dir = tmp_path / "debug"
     db = CrappyDB(db_file)
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(side_effect=download)
     filters = [
         DbUrlFilter(db),
         DbExactDupFilter(db),
@@ -97,17 +109,15 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
         ImageFilter((100, 100), 50_000),
     ]
     scraper = Scraper(
-        browser=Mock(),
-        client=mock_client,
+        image_source=MockImageSource(),
         db=db,
         filters=filters,
         debug_outdir=str(debug_dir),
+        outdir=outdir,
+        count=10,
     )
-    queries = ["hello", "world", "!"]
     # WHEN
-    links = await scraper.scrape_async(
-        queries=queries, outdir=outdir, count=10, search_fn=search_fn
-    )
+    links = await scraper.async_scrape()
     # THEN
     expected_links = [
         # small - http://images.com/0.png
@@ -139,6 +149,7 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
             "Cumulative n=3 | links:6 | dup:url:1 dup:hash:1 small:1 dup:near:1 err:0 | new:2"
         ),
     ]
+    assert mock_logger.info.call_args_list == expected_info_calls
     match = Result(
         url="http://images.com/1.png",
         hashstr="c53d298c7ee5f8d06af64b68c06f93245a165397549a8d55aeecbad16743a689",
@@ -153,7 +164,6 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
             "w": "0000000000000000",
         },
     )
-    assert mock_logger.info.call_args_list == expected_info_calls
     expected_debug_calls = [
         call("Too small: http://images.com/0.png: (10, 10)"),
         call(f"Downloaded http://images.com/1.png to {tmp_path}/out/c53d298c.png"),
