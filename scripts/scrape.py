@@ -101,6 +101,7 @@ def scrape(configfile: str) -> None:
             db=db,
             filters=filters,
             debug_outdir=run.debug_outdir,
+            concurrency=run.concurrency,
         )
         outdir: str | None = None
         if run.outdir:

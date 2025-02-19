@@ -15,6 +15,7 @@ class CommonConfiguration(BaseModel):
     safe_search: bool | None = None
     filters: list[dict[str, Any]] | None = None
     debug_outdir: str | None = None
+    concurrency: int | None = None
 
 
 class RunConfiguration(CommonConfiguration):
@@ -33,6 +34,7 @@ class RunConfiguration(CommonConfiguration):
             "safe_search",
             "filters",
             "debug_outdir",
+            "concurrency",
         ]
         for field in fields_to_resolve:
             if getattr(self, field) is None:

@@ -4,7 +4,6 @@ import functools
 import hashlib
 import io
 import logging
-import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -126,12 +125,14 @@ class Scraper:
         db: CrappyDB | None = None,
         filters: list[Filter] | None = None,
         debug_outdir: str | None = None,
+        concurrency: int | None = None,
     ):
         self.browser = browser
         self.client = client or httpx.AsyncClient(follow_redirects=True, timeout=30)
         self.db = db
         self.debug_outdir = debug_outdir
         self.stage2filters: dict[str, list[Filter]] = defaultdict(list)
+        self._semaphore = asyncio.Semaphore(concurrency or 1)
         if filters:
             for filter in filters:
                 self.stage2filters[filter.stage()].append(filter)
@@ -156,7 +157,7 @@ class Scraper:
         if similar_images:
             return asyncio.run(
                 self.scrape_async(
-                    get_urls_or_files(similar_images, self.db),
+                    get_urls_or_files(similar_images, None),
                     outdir,
                     count,
                     self.browser.search_similar_images,
@@ -210,108 +211,109 @@ class Scraper:
     async def process_link(
         self, link: str, query: str, outdir: str
     ) -> tuple[str | None, str]:
-        try:
-            # Filter based on URL
-            keep, code = await _apply_filters(
-                query=query, url=link, filters=self.stage2filters["url"]
-            )
-            if not keep:
-                return (None, code)
+        async with self._semaphore:
+            try:
+                # Filter based on URL
+                keep, code = await _apply_filters(
+                    query=query, url=link, filters=self.stage2filters["url"]
+                )
+                if not keep:
+                    return (None, code)
 
-            # Download image (do not save to disk yet)
-            response = await self.client.get(link)
-            response.raise_for_status()
-            contents = response.content
-            if not contents:
-                logger.debug(f"Failed to fetch {link}: no contents")
-                return (None, "err")
+                # Download image (do not save to disk yet)
+                response = await self.client.get(link)
+                response.raise_for_status()
+                contents = response.content
+                if not contents:
+                    logger.debug(f"Failed to fetch {link}: no contents")
+                    return (None, "err")
 
-            # Get image "identity"
-            # https://stackoverflow.com/a/64994148
-            hashstr = hashlib.sha256(contents).hexdigest()
+                # Get image "identity"
+                # https://stackoverflow.com/a/64994148
+                hashstr = hashlib.sha256(contents).hexdigest()
 
-            img = Image.open(io.BytesIO(contents))
+                img = Image.open(io.BytesIO(contents))
 
-            # Filter based on image contents
-            keep, code = await _apply_filters(
-                url=link,
-                query=query,
-                contents=contents,
-                hashstr=hashstr,
-                img=img,
-                filters=self.stage2filters["contents"],
-                debug_outdir=self.debug_outdir,
-            )
-            if not keep:
-                return (None, code)
+                # Filter based on image contents
+                keep, code = await _apply_filters(
+                    url=link,
+                    query=query,
+                    contents=contents,
+                    hashstr=hashstr,
+                    img=img,
+                    filters=self.stage2filters["contents"],
+                    debug_outdir=self.debug_outdir,
+                )
+                if not keep:
+                    return (None, code)
 
-            # Filter based on hashes
-            hashes = {
-                "a": str(imagehash.average_hash(img)),
-                "p": str(imagehash.phash(img)),
-                "d": str(imagehash.dhash(img)),
-                "dv": str(imagehash.dhash_vertical(img)),
-                "w": str(imagehash.whash(img)),
-            }
-            keep, code = await _apply_filters(
-                url=link,
-                query=query,
-                contents=contents,
-                hashstr=hashstr,
-                img=img,
-                hashes=hashes,
-                filters=self.stage2filters["hashes"],
-                debug_outdir=self.debug_outdir,
-            )
-            if not keep:
-                return (None, code)
+                # Filter based on hashes
+                hashes = {
+                    "a": str(imagehash.average_hash(img)),
+                    "p": str(imagehash.phash(img)),
+                    "d": str(imagehash.dhash(img)),
+                    "dv": str(imagehash.dhash_vertical(img)),
+                    "w": str(imagehash.whash(img)),
+                }
+                keep, code = await _apply_filters(
+                    url=link,
+                    query=query,
+                    contents=contents,
+                    hashstr=hashstr,
+                    img=img,
+                    hashes=hashes,
+                    filters=self.stage2filters["hashes"],
+                    debug_outdir=self.debug_outdir,
+                )
+                if not keep:
+                    return (None, code)
 
-            # Run expensive filters (e.g. LLMs)
-            keep, code = await _apply_filters(
-                url=link,
-                query=query,
-                contents=contents,
-                hashstr=hashstr,
-                img=img,
-                hashes=hashes,
-                filters=self.stage2filters["expensive"],
-                debug_outdir=self.debug_outdir,
-            )
-            if not keep:
+                # Run expensive filters (e.g. LLMs)
+                keep, code = await _apply_filters(
+                    url=link,
+                    query=query,
+                    contents=contents,
+                    hashstr=hashstr,
+                    img=img,
+                    hashes=hashes,
+                    filters=self.stage2filters["expensive"],
+                    debug_outdir=self.debug_outdir,
+                )
+                if not keep:
+                    if self.db:
+                        # Remember this image to avoid performing expensive computations again
+                        self.db.put(
+                            Result(
+                                url=link,
+                                hashstr=hashstr,
+                                ts=datetime.datetime.now(),
+                                path="",
+                                query=query,
+                                hashes=hashes,
+                            )
+                        )
+                    return (None, code)
+
+                image_path = None
+                if outdir:
+                    image_path = _save_file(link, contents, hashstr, img, outdir)
+
+                # Update DB
                 if self.db:
-                    # Remember this image to avoid performing expensive computations again
                     self.db.put(
                         Result(
                             url=link,
                             hashstr=hashstr,
                             ts=datetime.datetime.now(),
-                            path="",
+                            path=image_path,
                             query=query,
                             hashes=hashes,
                         )
                     )
-                return (None, code)
 
-            image_path = None
-            if outdir:
-                image_path = _save_file(link, contents, hashstr, img, outdir)
+                return (image_path, "new")
 
-            # Update DB
-            if self.db:
-                self.db.put(
-                    Result(
-                        url=link,
-                        hashstr=hashstr,
-                        ts=datetime.datetime.now(),
-                        path=image_path,
-                        query=query,
-                        hashes=hashes,
-                    )
-                )
-
-            return (image_path, "new")
-
-        except Exception as e:
-            str_e = str(e).replace("\n", " ")
-            logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
-            return (None, "err")
+            except Exception as e:
+                str_e = str(e).replace("\n", " ")
+                logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
+                return (None, "err")
