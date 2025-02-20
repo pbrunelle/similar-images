@@ -41,12 +41,14 @@ def setup_logging(verbose: bool) -> None:
 
 def scrape(
     queries: str,
+    db: str | None = None,
+    min_area: int | None = None,
+    min_size: list[int] | None = None,
     num_images: int | None = None,
     outdir: str | None = None,
-    db: str | None = None,
-    min_size: list[int] | None = None,
-    min_area: int | None = None,
+    threads: int | None = None,
     verbose: bool | None = None,
+    
 ) -> None:
     setup_logging(verbose or False)
     crappy_db = None
@@ -71,6 +73,7 @@ def scrape(
         filters=filter_objects,
         outdir=outdir or ".",
         count=num_images,
+        concurrency=threads,
     )
     scraper.sync_scrape()
 
