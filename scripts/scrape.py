@@ -1,15 +1,10 @@
 import datetime
 import logging
-import os
-import shutil
-import tempfile
 
 import fire
-import httpx
 
 from similar_images.bing_selenium import BingSelenium
 from similar_images.crappy_db import CrappyDB
-from similar_images.filters.filter import Filter
 from similar_images.filters.utils import get_filters
 from similar_images.image_sources import get_image_sources
 from similar_images.scraper import Scraper

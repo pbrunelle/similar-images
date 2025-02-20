@@ -6,7 +6,7 @@ from similar_images.filters.filter import Filter, FilterResult, FilterStage
 class ImageFilter(Filter):
     def __init__(self, min_size: tuple[int, int], min_area: int) -> None:
         assert len(min_size) == 2
-        assert min_area > 0
+        assert min_area >= 0
         self._min_size = tuple(sorted(min_size))
         self._min_area = min_area
 
