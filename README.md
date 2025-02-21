@@ -97,7 +97,27 @@ Regular expressions are a powerful way to get many images!
 
 ## Seach using existing images
 
-TODO
+Another way to find images is to use the "Search using an image" functionality.
+Let's take one of the images that we downloaded into `cats_and_dogs`.
+Note that due to some limitations, we'll need to run the browser in "visible" mode,
+as opposed to "headless" mode as we did previously.
+You will see a browser appear on your screen, operated by Similar Images.
+
+```bash
+python -m scripts.scrape2 -p ./cats_and_dogs/00242a35.jpeg --headless False
+```
+
+We can also provide a whole directory:
+
+```bash
+python -m scripts.scrape2 -p ./cats_and_dogs --headless False
+```
+
+Finally, we can provide URLs, and even mix-and-match URLs and local paths:
+
+```bash
+python -m scripts.scrape2 -p https://www.catster.com/wp-content/uploads/2023/11/selkirk-rex-cat-on-brown-background_mdmmikle_Shutterstock-768x512.jpg --headless False
+```
 
 # Using LLMs
 
