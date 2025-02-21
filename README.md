@@ -104,24 +104,52 @@ as opposed to "headless" mode as we did previously.
 You will see a browser appear on your screen, operated by Similar Images.
 
 ```bash
-python -m scripts.scrape2 -p ./cats_and_dogs/00242a35.jpeg --headless False
+python -m scripts.scrape2 -p ./cats_and_dogs/00242a35.jpeg --visible
 ```
 
 We can also provide a whole directory:
 
 ```bash
-python -m scripts.scrape2 -p ./cats_and_dogs --headless False
+python -m scripts.scrape2 -p ./cats_and_dogs --visible
 ```
 
-Finally, we can provide URLs, and even mix-and-match URLs and local paths:
+Or URLs:
 
 ```bash
-python -m scripts.scrape2 -p https://www.catster.com/wp-content/uploads/2023/11/selkirk-rex-cat-on-brown-background_mdmmikle_Shutterstock-768x512.jpg --headless False
+python -m scripts.scrape2 -p https://www.catster.com/wp-content/uploads/2023/11/selkirk-rex-cat-on-brown-background_mdmmikle_Shutterstock-768x512.jpg --visible
 ```
 
 # Using LLMs
 
-TODO
+So far we've used pretty simple filters to reduce the number of images we have to look at -- the size of the image or its similarity to images we already know about.
+With Large Language Models (LLMs), we can also write down what we want or don't want to see in an image,
+and let the LLM tell us if a given image matches our criteria.
+This is often useful as using keywords is limited.
+We'll use Gemini from Google, because it works pretty well with images.
+To continue with this example, you need to get an [API key](https://ai.google.dev/gemini-api/docs/api-key).
+
+We have already downloaded a fair number of images.
+Let's go back over them to find which ones have an animal with an open mouth or green eyes.
+First we need to write a configuration to tell Gemini what to do.
+Create a file cute_pets.json containing the following:
+
+```json
+{
+    "model": "gemini-2.0-flash",
+    "max_output_tokens": 10,
+    "query": "Is this a picture of an animal with either an open mouth or green eyes? Answer by \"yes\" or \"no\"",
+    "keep_responses": ["yes"],
+    "filter_name": "cute_pets"
+}
+```
+
+Then we can run the following.
+It will look at each image from the first directory and only copy the ones matching our criteria to the second directory.
+
+```bash
+export GEMINI_API_KEY=...
+python -m scripts.scrape2 -l ./cats_and_dogs -o cute_pets -v -g cute_pets.json
+```
 
 ## Prompting
 

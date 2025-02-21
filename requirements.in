@@ -20,3 +20,4 @@ imagehash
 pydantic
 selenium
 requests
+typer
