@@ -22,11 +22,14 @@ def setup_logging(verbose: bool) -> None:
     handlers = [logging.StreamHandler()]
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+        format="%(asctime)s.%(msecs)03d - %(message)s",
+        datefmt="%H:%M:%S",
         handlers=handlers,
     )
     for module in [
+        "asyncio",
         "selenium.webdriver.common.selenium_manager",
+        "selenium.webdriver.common.service",
         "selenium.webdriver.remote.remote_connection",
         "urllib3.connectionpool",
         "httpcore.http11",
@@ -48,9 +51,9 @@ def scrape(
     outdir: str | None = None,
     threads: int | None = None,
     verbose: bool | None = None,
-    
 ) -> None:
     setup_logging(verbose or False)
+    logger.info(f"{queries=}")
     crappy_db = None
     filter_objects = []
     if db:

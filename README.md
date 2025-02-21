@@ -47,42 +47,45 @@ make create-venv
 
 ## Search using keywords
 
-Download 10 pictures of cats. Meow!
+Let's download 10 pictures of cats. Meow!
 
 ```bash
 python -m scripts.scrape2 -q cats -n 10 -o meow
 ```
 
-You should see 10 pictures of cats downloaded in the `meow` sub-directory.
-Now if we were to run that query again, we'd download mostly the same images. That's not very useful.
+There should be 10 cat pictures in the `meow` sub-directory.
+If we were to run that query again, we'd download mostly the same images.
+That's not very useful.
 However, we can use a database to keep track of which images we have downloaded so far,
-and avoid downloading them again. When we specify a database, Similar Images keeps track of what
-we have downloaded, and in the future it will exclude images from a known URL,
+and avoid downloading them again.
+When we specify a database, Similar Images keeps track of what we have downloaded,
+and in the future it will exclude images from a known URL,
 that have identical contents, or that are almost identical based on hashing techniques.
+
+When we run the following command, the database `db.jsonl` will get populated,
+and Similar Images should download pretty much the same images as it did previously.
+You can tell by once again looking at `meow` - there should only be 10 images,
+the same ones we previously downloaded.
+But if we run the command a second time, it won't download the same images twice.
+You should now see 10 new images for a total of 20.
+You can therefore run Similar Images frequently and have it fetch only new images. 
 
 ```bash
 python -m scripts.scrape2 -q cats -n 10 -o meow --db db.jsonl
 ```
 
-When we run this, the database `db.jsonl` it will start to get populated,
-and Similar Images should download pretty much the same images as it did previously.
-You can tell by once again looking at `meow`. You should see only about 10 images,
-pretty much the same ones we downloaded before.
-But if we run the command a second time, it won't download the same images twice.
-You should now see about 20 images.
-You can therefore run Similar Images frequently and only have to check new images. 
-
 We can make things more interesting.
 Instead of only searching for cats, let's also search for dogs.
 Also, let's make sure we find pets of all sizes.
-Similar Images allows specifying regular expressions.
-We will now try to dowload as many images as possible, therefore we'll drop the `-n` parameter.
+Similar Images allows specifying [regular expressions](https://github.com/asciimoo/exrex).
+We will try to dowload as many images as possible, therefore we'll drop the `-n` parameter.
 Because we now have more images to work with, we can be more picky on the ones we download.
-Let's make sure all images are fairly large, i.e. they are at least 1500 x 1200 pixels.
-Also, so far we have downloaded 1 image at a time, which is slow when dealing with a large
-number of images. Let's download up to 5 images at once.
-And finally, we'll ask Similar Images to be more verbose in its output, to help us better understand
-which decisions it is making. Putting it all together:
+Let's make sure all images are fairly large, say least 1500 x 1200 pixels.
+Also, so far we have downloaded 1 image at a time, which can be slow.
+Let's instead download up to 5 images at once.
+Finally, we'll ask Similar Images to be more verbose in its output,
+in order to help us better understand the decisions it is making.
+Putting it all together:
 
 ```bash
 python -m scripts.scrape2 -q "(small|medium|big) (cats|dogs)" -o cats_and_dogs --db db.jsonl --min-size=1500,1200 -t 5 -v

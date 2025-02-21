@@ -1,12 +1,11 @@
 import asyncio
 import datetime
-import functools
 import hashlib
 import io
 import logging
+import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 import httpx
 import imagehash
@@ -256,6 +255,8 @@ class Scraper:
             return (image_path, "new")
 
         except Exception as e:
-            str_e = str(e).replace("\n", " ")
-            logger.debug(f"Failed to download {link}: {type(e)} {str_e}")
+            str_e = str(e)
+            if m := re.match("(.*) for url .*", str_e):
+                str_e = m.group(1)
+            logger.debug(f"Failed to download {link}: {type(e).__name__} {str_e}")
             return (None, "err")

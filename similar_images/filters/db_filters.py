@@ -13,7 +13,9 @@ class DbFilter(Filter):
         if not record:
             return FilterResult(keep=True)
         else:
-            explanation = f"Already downloaded ({self.stat_name()}): {url}: ({record})"
+            explanation = f"Already downloaded ({self.stat_name()}): {url}"
+            if url != record.url:
+                explanation += f": {record.url}"
             return FilterResult(keep=False, explanation=explanation)
 
 

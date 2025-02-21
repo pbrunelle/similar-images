@@ -150,27 +150,15 @@ async def test_scrape_async(mock_logger, mock_datetime, tmp_path):
         ),
     ]
     assert mock_logger.info.call_args_list == expected_info_calls
-    match = Result(
-        url="http://images.com/1.png",
-        hashstr="c53d298c7ee5f8d06af64b68c06f93245a165397549a8d55aeecbad16743a689",
-        ts=mock_datetime.datetime.now.return_value,
-        path=f"{tmp_path}/out/c53d298c.png",
-        query="hello",
-        hashes={
-            "a": "0000000000000000",
-            "p": "0000000000000000",
-            "d": "0000000000000000",
-            "dv": "0000000000000000",
-            "w": "0000000000000000",
-        },
-    )
     expected_debug_calls = [
         call("Too small: http://images.com/0.png: (10, 10)"),
         call(f"Downloaded http://images.com/1.png to {tmp_path}/out/c53d298c.png"),
-        call(f"Already downloaded (dup:hash): http://images.com/2.png: ({match})"),
-        call(f"Already downloaded (dup:url): http://images.com/1.png: ({match})"),
         call(
-            f"Already downloaded (dup:near): http://google.com/images/img0.jpeg: ({match})"
+            f"Already downloaded (dup:hash): http://images.com/2.png: http://images.com/1.png"
+        ),
+        call(f"Already downloaded (dup:url): http://images.com/1.png"),
+        call(
+            f"Already downloaded (dup:near): http://google.com/images/img0.jpeg: http://images.com/1.png"
         ),
         call(
             f"Dumped http://google.com/images/img0.jpeg to {tmp_path}/debug/dup:near/3ce1635b.jpeg"
