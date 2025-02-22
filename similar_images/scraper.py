@@ -144,7 +144,7 @@ class Scraper:
         self, link: str, query: str, downloaded_links: set[str], q_stats: dict[str, int]
     ) -> None:
         async with self.semaphore:
-            if self.count is not None and len(downloaded_links) >= self.count:
+            if self.count is not None and q_stats["new"] >= self.count:
                 return  # collected enough images
             link, code = await self.process_link(link, query)
             q_stats["links"] += 1

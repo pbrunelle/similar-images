@@ -126,7 +126,7 @@ def scrape(
             image_source=image_source,
             db=crappy_db,
             filters=filter_objects,
-            outdir=outdir or ".",
+            outdir=outdir,
             debug_outdir=debug_outdir,
             count=num_images,
             concurrency=threads,
