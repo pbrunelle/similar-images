@@ -50,50 +50,52 @@ make create-venv
 Let's download 10 pictures of cats. Meow!
 
 ```bash
-python -m scripts.scrape2 -q cats -n 10 -o meow
+si.py -q cats -n 10 -o meow
 ```
 
 There should be 10 cat pictures in the `meow` sub-directory.
 If we were to run that query again, we'd download mostly the same images.
 That's not very useful.
 However, we can use a database to keep track of which images we have downloaded so far,
-and avoid downloading them again.
-When we specify a database, Similar Images keeps track of what we have downloaded,
-and in the future it will exclude images from a known URL,
-that have identical contents, or that are almost identical based on hashing techniques.
-
-When we run the following command, the database `db.jsonl` will get populated,
-and Similar Images should download pretty much the same images as it did previously.
-You can tell by once again looking at `meow` - there should only be 10 images,
-the same ones we previously downloaded.
-But if we run the command a second time, it won't download the same images twice.
-You should now see 10 new images for a total of 20.
-You can therefore run Similar Images frequently and have it fetch only new images. 
+and avoid downloading them again. Similar Images uses multiple methods to detect
+duplicate images: it checks not only for URLs but also uses hashing techniques
+to figure out that two images are almost identical.
 
 ```bash
-python -m scripts.scrape2 -q cats -n 10 -o meow --db db.jsonl
+si.py -q cats -n 10 -o meow --db db.jsonl
 ```
 
-We can make things more interesting.
-Instead of only searching for cats, let's also search for dogs.
-Also, let's make sure we find pets of all sizes.
+The database `db.jsonl` should now contain 10 entries, one per downloaded image.
+If we run the command a second time, it won't download the same images twice.
+You can therefore run Similar Images frequently and have it fetch only new images. 
+
+We often want to search not only by one specific phrase, but by slight variations.
+For instance, we may want to find cats and dogs of all sizes.
 Similar Images allows specifying [regular expressions](https://github.com/asciimoo/exrex).
-We will try to dowload as many images as possible, therefore we'll drop the `-n` parameter.
-Because we now have more images to work with, we can be more picky on the ones we download.
-Let's make sure all images are fairly large, say least 1500 x 1200 pixels.
-Also, so far we have downloaded 1 image at a time, which can be slow.
-Let's instead download up to 5 images at once.
+For instance, if we rewrite our query to `(small|medium|big) (cats|dogs)`,
+Similar Images will execute 6 query searches:
+"small cats", "medium cats", "large cats", "small dogs", "medium dogs", and "large dogs".
+
+```bash
+si.py -q "(small|medium|big) (cats|dogs)" -o cats_and_dogs --db db.jsonl
+```
+
+Regular expressions are a powerful way to get many images!
+Because we can find and download a very large number of images,
+we can afford to be more picky. One way is to specify a minimum image size.
+For instance `--min-size=800,1000` to extract only images bigger than
+either 800x1000 or 1000x800.
+To help speed things up, we can also tell Similar Images to work in parallel:
+`-t 5` tells it to process up to five links at the same time.
 Finally, we'll ask Similar Images to be more verbose in its output,
 in order to help us better understand the decisions it is making.
 Putting it all together:
 
 ```bash
-python -m scripts.scrape2 -q "(small|medium|big) (cats|dogs)" -o cats_and_dogs --db db.jsonl --min-size=1500,1200 -t 5 -v
+si.py -q "(small|medium|big) (cats|dogs)" -o cats_and_dogs --db db.jsonl --min-size=1500,1200 -t 5 -v
 ```
 
-This made 6 distinct queries to the search engine:
-"small cats", "medium cats", "large cats", "small dogs", "medium dogs", and "large dogs".
-Regular expressions are a powerful way to get many images!
+Later we'll look at [using LLMs](#using-llms) to filter images even further.
 
 ## Seach using existing images
 
@@ -104,19 +106,19 @@ as opposed to "headless" mode as we did previously.
 You will see a browser appear on your screen, operated by Similar Images.
 
 ```bash
-python -m scripts.scrape2 -p ./cats_and_dogs/00242a35.jpeg --visible
+si.py -p ./cats_and_dogs/00242a35.jpeg --visible
 ```
 
 We can also provide a whole directory:
 
 ```bash
-python -m scripts.scrape2 -p ./cats_and_dogs --visible
+si.py -p ./cats_and_dogs --visible
 ```
 
 Or URLs:
 
 ```bash
-python -m scripts.scrape2 -p https://www.catster.com/wp-content/uploads/2023/11/selkirk-rex-cat-on-brown-background_mdmmikle_Shutterstock-768x512.jpg --visible
+si.py -p https://www.catster.com/wp-content/uploads/2023/11/selkirk-rex-cat-on-brown-background_mdmmikle_Shutterstock-768x512.jpg --visible
 ```
 
 # Using LLMs
@@ -148,7 +150,7 @@ It will look at each image from the first directory and only copy the ones match
 
 ```bash
 export GEMINI_API_KEY=...
-python -m scripts.scrape2 -l ./cats_and_dogs -o cute_pets -v -g cute_pets.json
+si.py -l ./cats_and_dogs -o cute_pets -v -g cute_pets.json
 ```
 
 ## Prompting
