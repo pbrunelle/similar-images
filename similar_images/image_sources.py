@@ -1,4 +1,5 @@
 import os
+import random
 import tempfile
 
 import exrex
@@ -42,13 +43,18 @@ class BrowserQuerySource(ImageSource):
 class BrowserImageSource(ImageSource):
     """Returns URLs to images using the 'Search using an image' functionality."""
 
-    def __init__(self, browser: BingSelenium, urls_or_paths: str):
+    def __init__(self, browser: BingSelenium, urls_or_paths: str, random: bool = False):
         self._browser = browser
         self._urls_or_paths = urls_or_paths
+        self._random = random
 
     async def batches(self):
-        for urls_or_path in get_urls_or_files(self._urls_or_paths):
-            yield urls_or_path
+        urls_or_paths = get_urls_or_files(self._urls_or_paths)
+        if self._random:
+            urls_or_paths = list(urls_or_paths)
+            random.shuffle(urls_or_paths)
+        for path in urls_or_paths:
+            yield path
 
     async def images(self, batch: str):
         async for url in self._browser.search_similar_images(batch):
@@ -71,18 +77,27 @@ class LocalFileImageSource(ImageSource):
     Useful for evaluation.
     """
 
-    def __init__(self, local_paths: str):
+    def __init__(self, local_paths: list[str], random: bool = False):
         self._local_paths = local_paths
+        self._random = random
 
     def get_client(self):
         return FakeClient()
 
     async def batches(self):
-        for path in self._local_paths:
+        paths = self._local_paths
+        if self._random:
+            paths = list(paths)
+            random.shuffle(paths)
+        for path in paths:
             yield path
 
     async def images(self, batch: str):
-        for path in get_urls_or_files([batch]):
+        files_or_urls = get_urls_or_files([batch])
+        if self._random:
+            files_or_urls = list(files_or_urls)
+            random.shuffle(files_or_urls)
+        for path in files_or_urls:
             yield path
 
 

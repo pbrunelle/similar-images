@@ -69,6 +69,7 @@ def scrape(
     paths: list[str] | None = Option(None, "-p"),
     queries: str | None = Option(None, "-q"),
     no_safe_search: bool = False,
+    randomize: bool = Option(False, "-r"),
     threads: int | None = Option(None, "-t"),
     verbose: bool = Option(False, "-v"),
     visible: bool = Option(False, "--visible", help="Run browser in visual mode"),
@@ -78,7 +79,7 @@ def scrape(
     setup_logging(verbose, logfile)
     headless = not visible
     logger.info(
-        f"{db=} {gemini=} {headless=} {min_area=} {min_size=} {no_safe_search=} {num_images=} {outdir=} {paths=} {queries=} {threads=} {verbose=}"
+        f"{db=} {gemini=} {headless=} {min_area=} {min_size=} {no_safe_search=} {num_images=} {outdir=} {paths=} {queries=} {randomize=} {threads=} {verbose=}"
     )
     assert local_files or paths or queries, (
         "at least one of -l, -p or -q must be specified"
@@ -113,9 +114,9 @@ def scrape(
     # Image sources
     image_sources = []
     if local_files:
-        image_sources.append(LocalFileImageSource(local_files))
+        image_sources.append(LocalFileImageSource(local_files, random=randomize))
     if paths:
-        image_sources.append(BrowserImageSource(browser, paths))
+        image_sources.append(BrowserImageSource(browser, paths, random=randomize))
     if queries:
         image_sources.append(BrowserQuerySource(browser, queries))
     for image_source in image_sources:
