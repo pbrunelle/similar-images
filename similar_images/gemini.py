@@ -17,13 +17,12 @@ class Decision(BaseModel):
     image_path: str
     content: dict[str, Any]  # response.json()
     block: str | None  # response.json()["promptFeedback"]["blockReason"]
-    text: str | None # response.json()["candidates"][0]["content"]["parts"][0]["text"]
+    text: str | None  # response.json()["candidates"][0]["content"]["parts"][0]["text"]
     decision: str | None  # either block or text.strip().lower()
     status_code: int  # response.status_code
     usage: dict[str, int] | None  # response.json()["usageMetadata"]
 
     def answer(self):
-        logger.debug(self)
         d: str = self.decision
         if (idx := d.find("```json")) != -1:
             d = d[idx:].removeprefix("```json")
@@ -127,17 +126,20 @@ class Gemini:
 
     def parse_response(self, image_path: str, response: httpx.Response) -> Decision:
         content = response.json()
-        print(content)
         block = content.get("promptFeedback", {}).get("blockReason", None)
         decision = block
         usage = content.get("usageMetadata")
-        usage = dict((k,v) for k,v in usage.items() if k in ('promptTokenCount', 'candidatesTokenCount', 'totalTokenCount'))
+        usage = dict(
+            (k, v)
+            for k, v in usage.items()
+            if k in ("promptTokenCount", "candidatesTokenCount", "totalTokenCount")
+        )
         try:
             text = content["candidates"][0]["content"]["parts"][0]["text"]
             decision = text.strip().lower()
         except (KeyError, IndexError):
             text = None
-        
+
         return Decision(
             image_path=image_path,
             content=content,
