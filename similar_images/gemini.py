@@ -15,9 +15,12 @@ logger = logging.getLogger(__name__)
 
 class Decision(BaseModel):
     image_path: str
-    content: dict[str, Any]
-    decision: str | None
-    status_code: int
+    content: dict[str, Any]  # response.json()
+    block: str | None  # response.json()["promptFeedback"]["blockReason"]
+    text: str | None # response.json()["candidates"][0]["content"]["parts"][0]["text"]
+    decision: str | None  # either block or text.strip().lower()
+    status_code: int  # response.status_code
+    usage: dict[str, int] | None  # response.json()["usageMetadata"]
 
     def answer(self):
         logger.debug(self)
@@ -52,6 +55,7 @@ class Gemini:
         tries: int = 5,
         retry_sleep: float = 10,
         api_key: str | None = None,
+        text_before_image: bool = True,
     ):
         self._api_key = api_key if api_key else os.environ["GEMINI_API_KEY"]
         self._httpx_client = httpx_client
@@ -59,6 +63,7 @@ class Gemini:
         self._max_output_tokens = max_output_tokens
         self._tries = tries
         self._retry_sleep = retry_sleep
+        self._text_before_image = text_before_image
 
     async def chat(
         self,
@@ -84,7 +89,8 @@ class Gemini:
         self, query: str, image_paths: list[str], image_contents: list[bytes]
     ) -> Decision:
         parts = []
-        parts.append({"text": query})
+        if self._text_before_image:
+            parts.append({"text": query})
         for image_path in image_paths:
             with open(image_path, "rb") as f:
                 extension = image_path.rsplit(".")[-1]
@@ -104,7 +110,8 @@ class Gemini:
                 }
             }
             parts.append(d)
-
+        if not self._text_before_image:
+            parts.append({"text": query})
         data = {
             "generationConfig": {
                 "max_output_tokens": self._max_output_tokens,
@@ -120,20 +127,23 @@ class Gemini:
 
     def parse_response(self, image_path: str, response: httpx.Response) -> Decision:
         content = response.json()
-        decision = None
+        print(content)
+        block = content.get("promptFeedback", {}).get("blockReason", None)
+        decision = block
+        usage = content.get("usageMetadata")
+        usage = dict((k,v) for k,v in usage.items() if k in ('promptTokenCount', 'candidatesTokenCount', 'totalTokenCount'))
         try:
-            decision = content["promptFeedback"]["blockReason"]
-        except KeyError:
-            pass
-        try:
-            decision = (
-                content["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
-            )
+            text = content["candidates"][0]["content"]["parts"][0]["text"]
+            decision = text.strip().lower()
         except (KeyError, IndexError):
-            pass
+            text = None
+        
         return Decision(
             image_path=image_path,
             content=content,
+            block=block,
+            text=text,
             decision=decision,
             status_code=response.status_code,
+            usage=usage,
         )
