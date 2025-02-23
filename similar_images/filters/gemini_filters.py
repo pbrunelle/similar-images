@@ -1,7 +1,11 @@
+import logging
+
 import httpx
 
 from similar_images.filters.filter import Filter, FilterResult, FilterStage
 from similar_images.gemini import Gemini
+
+logger = logging.getLogger("__name__")
 
 
 class GeminiFilter(Filter):
@@ -34,11 +38,15 @@ class GeminiFilter(Filter):
         return self._filter_name
 
     async def filter(self, url: str, contents: bytes, **kwargs) -> FilterResult:
-        decision = await self._gemini.chat(query=self._query, image_contents=[contents])
-        if decision.answer() in self._keep_responses:
+        got = await self._gemini.chat(query=self._query, image_contents=[contents])
+        status = got.status_code
+        block = got.block
+        decision = got.decision
+        logger.debug(
+            f"Gemini {self._model}/{self._filter_name}: {url=} {status=} {block=} {decision=}"
+        )
+        if got.answer() in self._keep_responses:
             return FilterResult(keep=True)
         else:
-            explanation = (
-                f"Rejected by {self._model}/{self._filter_name}: {url}: {decision}"
-            )
+            explanation = f"Rejected by {self._model}/{self._filter_name}: {url}: {status=} {block=} {decision=}"
             return FilterResult(keep=False, explanation=explanation)

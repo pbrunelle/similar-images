@@ -20,7 +20,7 @@ async def test_gemini_ok(text_before_image):
     content = {
         "candidates": [
             {
-                "content": {"parts": [{"text": "Google"}], "role": "model"},
+                "content": {"parts": [{"text": "Goo\ngle"}], "role": "model"},
                 "finishReason": "STOP",
                 "avgLogprobs": -5.926936864852905e-06,
             }
@@ -67,8 +67,8 @@ async def test_gemini_ok(text_before_image):
             "totalTokenCount": 271,
         },
         block=None,
-        text="Google",
-        decision="google",
+        text="Goo\ngle",
+        decision="goo gle",
     )
     b64image = (
         "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgA"
@@ -102,4 +102,20 @@ async def test_gemini_ok(text_before_image):
             "contents": {"parts": parts},
         },
     )
-    assert False
+
+
+def test_decision_answer():
+    # GIVEN
+    decision = Decision(
+        image_path="",
+        content={},
+        block=None,
+        text=None,
+        decision="Here is a description of the image. Bla bla bla. <answer>no</answer>",
+        status_code=200,
+        usage=None,
+    )
+    # WHEN
+    got = decision.answer()
+    # THEN
+    assert got == "no"

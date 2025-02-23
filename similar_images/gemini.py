@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import httpx
@@ -24,6 +25,8 @@ class Decision(BaseModel):
 
     def answer(self):
         d: str = self.decision
+        if m := re.search("<answer>(.*)</answer>", d):
+            return m.group(1).strip().lower()
         if (idx := d.find("```json")) != -1:
             d = d[idx:].removeprefix("```json")
         if (idx := d.rfind("```")) != -1:
@@ -136,7 +139,7 @@ class Gemini:
         )
         try:
             text = content["candidates"][0]["content"]["parts"][0]["text"]
-            decision = text.strip().lower()
+            decision = text.strip().lower().replace("\n", " ")
         except (KeyError, IndexError):
             text = None
 
