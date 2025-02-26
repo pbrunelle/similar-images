@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import datetime
 import json
 import logging
 import os
@@ -66,22 +67,36 @@ def scrape(
     min_size: int | None = Option(
         None, parser=lambda arg: (int(x) for x in arg.split(","))
     ),
+    no_safe_search: bool = False,
     num_images: int | None = Option(None, "-n"),
     outdir: str | None = Option(None, "-o"),
     paths: list[str] | None = Option(None, "-p"),
     queries: str | None = Option(None, "-q"),
-    no_safe_search: bool = False,
     randomize: bool = Option(False, "-r"),
     threads: int | None = Option(None, "-t"),
+    timestamp: bool = Option(False, "-T", "--timestamp", help="Add timestamp to -D, -o, and -L arguments"),
     verbose: bool = Option(False, "-v"),
     visible: bool = Option(False, "--visible", help="Run browser in visual mode"),
     wait_between_scroll: int | None = Option(None, "--wait-between-scroll"),
     wait_first_load: int | None = Option(None, "--wait-first-load"),
 ) -> None:
+    if timestamp:
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if outdir:
+            outdir = f"{outdir}/{now_str}"
+        if debug_outdir:
+            debug_outdir = f"{debug_outdir}/{now_str}"
+        if logfile:
+            logfile = f"{logfile}.{now_str}"
     setup_logging(verbose, logfile)
     headless = not visible
+    if min_size:
+        min_size = tuple(min_size)
     logger.info(
-        f"{db=} {gemini=} {headless=} {min_area=} {min_size=} {no_safe_search=} {num_images=} {outdir=} {paths=} {queries=} {randomize=} {threads=} {verbose=}"
+        f"{db=} {debug_outdir=} {gemini=} {headless=} {local_files=} {logfile=} "
+        f"{min_area=} {min_size=} {no_safe_search=} {num_images=} {outdir=} "
+        f"{paths=} {queries=} {randomize=} {threads=} {timestamp=} {verbose=} "
+        f"{wait_between_scroll=} {wait_first_load=} "
     )
     assert local_files or paths or queries, (
         "at least one of -l, -p or -q must be specified"
@@ -106,13 +121,15 @@ def scrape(
                 d = json.loads(f.read())
                 filter_objects.append(GeminiFilter(**d))
     home_tmp_dir = tempfile.mkdtemp(dir=os.environ["HOME"])
-    browser = BingSelenium(
-        headless=headless,
-        user_data_dir=home_tmp_dir,
-        wait_between_scroll=wait_between_scroll,
-        wait_first_load=wait_first_load,
-        safe_search=not no_safe_search,
-    )
+    browser = None
+    if paths or queries:
+        browser = BingSelenium(
+            headless=headless,
+            user_data_dir=home_tmp_dir,
+            wait_between_scroll=wait_between_scroll,
+            wait_first_load=wait_first_load,
+            safe_search=not no_safe_search,
+        )
     # Image sources
     image_sources = []
     if local_files:
@@ -120,7 +137,7 @@ def scrape(
     if paths:
         image_sources.append(BrowserImageSource(browser, paths, random=randomize))
     if queries:
-        image_sources.append(BrowserQuerySource(browser, queries))
+        image_sources.append(BrowserQuerySource(browser, queries, random=randomize))
     for image_source in image_sources:
         scraper = Scraper(
             image_source=image_source,

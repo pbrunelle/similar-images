@@ -15,7 +15,7 @@ class GeminiFilter(Filter):
         query: str,
         keep_responses: list[str],
         model: str,
-        timeout: float = 10,
+        timeout: float = 60,
         filter_name: str | None = None,
         **kwargs,
     ):

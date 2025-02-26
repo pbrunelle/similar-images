@@ -26,12 +26,17 @@ class ImageSource:
 class BrowserQuerySource(ImageSource):
     """Returns URLs to images based on search query terms."""
 
-    def __init__(self, browser: BingSelenium, queries: str):
+    def __init__(self, browser: BingSelenium, queries: str, random: bool = False):
         self._browser = browser
         self._queries = queries
+        self._random = random
 
     async def batches(self):
-        for query in exrex.generate(self._queries):
+        queries = exrex.generate(self._queries)
+        if self._random:
+            queries = list(queries)
+            random.shuffle(queries)
+        for query in queries:
             query = query.strip()
             yield query
 
