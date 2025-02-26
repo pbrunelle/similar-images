@@ -72,8 +72,7 @@ class BingSelenium:
         self.safe_search = safe_search if safe_search is not None else False
 
     async def search_images(self, query: str, max_images: int = -1):
-        done = set()
-        i = 0
+        logger.info(f"Searching {query=}")
         await asyncio.to_thread(
             functools.partial(self.driver.get, "https://www.bing.com")
         )
@@ -81,42 +80,10 @@ class BingSelenium:
         url = f"https://www.bing.com/images/search?q={quote_plus(query)}"
         logger.info(f"Searching {url=}")
         await asyncio.to_thread(functools.partial(self.driver.get, url))
-        await asyncio.sleep(self.wait_first_load)  # wait for images to load
-        while True:
-            i += 1
-            added = 0
-            elements = self.driver.find_elements(By.CLASS_NAME, "iusc")
-            for element in elements:
-                m = element.get_attribute("m")
-                if m:
-                    try:
-                        image_data = json.loads(m)
-                        url = image_data["murl"]
-                        if url not in done:
-                            done.add(url)
-                            added += 1
-                            yield url
-                    except json.JSONDecodeError:
-                        pass
-            logger.debug(
-                f"Search results iteration {i}: found {added} links, total {len(done)}"
-            )
-            if added == 0:
-                break
-            if max_images > 0 and len(done) >= max_images:
-                break
-            await asyncio.to_thread(
-                functools.partial(
-                    self.driver.execute_script,
-                    "window.scrollTo(0, document.body.scrollHeight);",
-                )
-            )
-            await self.click_show_more_if_visible()
-            await asyncio.sleep(self.wait_between_scroll)
+        async for url in self.yield_images("iusc", "m", max_images):
+            yield url
 
     async def search_similar_images(self, url_or_path: str, max_images: int = -1):
-        done = set()
-        i = 0
         logger.info(
             f"Searching similar to {'URL' if is_url(url_or_path) else 'path'} {url_or_path}"
         )
@@ -124,10 +91,8 @@ class BingSelenium:
             functools.partial(self.driver.get, "https://www.bing.com/images")
         )
         self.configure_safe_search()
-
         button = self.driver.find_element(By.ID, "sb_sbi")
         ActionChains(self.driver).move_to_element(button).click(button).perform()
-
         if is_url(url_or_path):
             text_input = self.driver.find_element(By.ID, "sb_pastepn")
             pyperclip.copy(url_or_path)
@@ -141,14 +106,19 @@ class BingSelenium:
                 _JS_DROP_FILE, drop_target, 0, 0
             )
             file_input.send_keys(url_or_path)
+        async for url in self.yield_images("richImgLnk", "data-m", max_images):
+            yield url
 
+    async def yield_images(self, img_class_name: str, image_attr: str, max_images: int):
+        done = set()
+        i = 0
         await asyncio.sleep(self.wait_first_load)
         while True:
             i += 1
             added = 0
-            elements = self.driver.find_elements(By.CLASS_NAME, "richImgLnk")
+            elements = self.driver.find_elements(By.CLASS_NAME, img_class_name)
             for element in elements:
-                m = element.get_attribute("data-m")
+                m = element.get_attribute(image_attr)
                 if m:
                     try:
                         image_data = json.loads(m)
