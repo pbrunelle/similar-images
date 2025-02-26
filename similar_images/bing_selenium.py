@@ -111,6 +111,7 @@ class BingSelenium:
                     "window.scrollTo(0, document.body.scrollHeight);",
                 )
             )
+            await self.click_show_more_if_visible()
             await asyncio.sleep(self.wait_between_scroll)
 
     async def search_similar_images(self, url_or_path: str, max_images: int = -1):
@@ -170,7 +171,16 @@ class BingSelenium:
                 break
             if max_images > 0 and len(done) >= max_images:
                 break
+            await self.click_show_more_if_visible()
             await asyncio.sleep(self.wait_between_scroll)
+
+    async def click_show_more_if_visible(self):
+        elements = self.driver.find_elements(By.CLASS_NAME, "btn_seemore")
+        for button in elements:
+            if button.is_displayed() and button.is_enabled():
+                ActionChains(self.driver).move_to_element(button).click(
+                    button
+                ).perform()
 
     def configure_safe_search(self) -> None:
         if not self.safe_search:
