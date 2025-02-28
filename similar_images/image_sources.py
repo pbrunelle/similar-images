@@ -48,7 +48,9 @@ class BrowserQuerySource(ImageSource):
 class BrowserImageSource(ImageSource):
     """Returns URLs to images using the 'Search using an image' functionality."""
 
-    def __init__(self, browser: BingSelenium, urls_or_paths: str, random: bool = False):
+    def __init__(
+        self, browser: BingSelenium, urls_or_paths: list[str], random: bool = False
+    ):
         self._browser = browser
         self._urls_or_paths = urls_or_paths
         self._random = random
