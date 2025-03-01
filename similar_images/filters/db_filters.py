@@ -56,14 +56,10 @@ class DbExactDupFilter(DbFilter):
         return self._return_result(url, record)
 
 
-def to_bit_str(s: str) -> str:
-    return format(int(s, 16), "0>64b")
-
-
-def hash_distance(hash1: str, hash2: str) -> bool:
-    bits1 = to_bit_str(hash1)
-    bits2 = to_bit_str(hash2)
-    return sum([int(b1 != b2) for b1, b2 in zip(bits1, bits2)])
+def hash_distance(hash1: str, hash2: str) -> int:
+    int1 = int(hash1, 16)
+    int2 = int(hash2, 16)
+    return bin(int1 ^ int2).count("1")
 
 
 def near_duplicate_hash(

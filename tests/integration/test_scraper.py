@@ -11,6 +11,7 @@ from similar_images.scraper import Scraper
 @pytest.fixture
 def get_browser(home_tmp_dir):
     browser: BingSelenium | None = None
+
     def _fn(headless: bool) -> BingSelenium:
         nonlocal browser
         browser = BingSelenium(
@@ -21,6 +22,7 @@ def get_browser(home_tmp_dir):
             user_data_dir=home_tmp_dir,
         )
         return browser
+
     yield _fn
     assert browser
     browser.done()

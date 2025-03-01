@@ -1,3 +1,6 @@
+import time
+import uuid
+
 import pytest
 
 from similar_images.crappy_db import CrappyDB
@@ -8,7 +11,6 @@ from similar_images.filters.db_filters import (
     hash_distance,
     near_duplicate_hash,
 )
-from similar_images.filters.filter import FilterResult, FilterStage
 from similar_images.types import Result
 
 
@@ -134,5 +136,22 @@ def test_hash_distance(hash1, hash2, expected):
         ),
     ],
 )
-def test_near_dupolicate_hash(hashes1, hashes2, expected):
+def test_near_duplicate_hash(hashes1, hashes2, expected):
     assert near_duplicate_hash(hashes1, hashes2) == expected
+
+
+def test_speed_near_duplicate_hash():
+    # GIVEN
+    N = 50_000
+    n = 100
+    db_hashes = [str(uuid.uuid4().hex)[:16] for _ in range(N)]
+    test_hashes = [str(uuid.uuid4().hex)[:16] for _ in range(n)]
+    # WHEN
+    start_time = time.perf_counter_ns()
+    for test_hash in test_hashes:
+        for db_hash in db_hashes:
+            hash_distance(test_hash, db_hash)
+    end_time = time.perf_counter_ns()
+    total_time = (end_time - start_time) / 1_000_000_000
+    # THEN
+    assert total_time <= 3.0, f"total time: {total_time} s"

@@ -132,7 +132,9 @@ class Scraper:
                 async with asyncio.TaskGroup() as tg:
                     async for link in self.image_source.images(query):
                         tg.create_task(
-                            self.process_link_task(link, query, downloaded_links, q_stats)
+                            self.process_link_task(
+                                link, query, downloaded_links, q_stats
+                            )
                         )
             except Exception as ex:
                 logger.warning(f"Exception while processing {query=}: {type(ex)} {ex}")
