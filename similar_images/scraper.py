@@ -128,11 +128,14 @@ class Scraper:
         async for query in self.image_source.batches():
             q += 1
             q_stats = _empty_stats(self.stage2filters)
-            async with asyncio.TaskGroup() as tg:
-                async for link in self.image_source.images(query):
-                    tg.create_task(
-                        self.process_link_task(link, query, downloaded_links, q_stats)
-                    )
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    async for link in self.image_source.images(query):
+                        tg.create_task(
+                            self.process_link_task(link, query, downloaded_links, q_stats)
+                        )
+            except Exception as ex:
+                logger.warning(f"Exception while processing {query=}: {type(ex)} {ex}")
             logger.info(f"Done {query=} | {_print_stats(q_stats)}")
             _add_stats(run_stats, q_stats)
             logger.info(f"Cumulative n={q} | {_print_stats(run_stats)}")
